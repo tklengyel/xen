@@ -1,7 +1,7 @@
 /*
  * vm_event.h: architecture specific vm_event handling routines
  *
- * Copyright (c) 2015 Tamas K Lengyel (tamas@tklengyel.com)
+ * Copyright (c) 2015-2016 Tamas K Lengyel (tamas@tklengyel.com)
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -19,6 +19,7 @@
 #ifndef __ASM_ARM_VM_EVENT_H__
 #define __ASM_ARM_VM_EVENT_H__
 
+#include <xen/stdbool.h>
 #include <xen/sched.h>
 #include <xen/vm_event.h>
 #include <public/domctl.h>

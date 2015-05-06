@@ -4,7 +4,7 @@
  *
  * Interface to VM event monitor
  *
- * Copyright (c) 2015 Tamas K Lengyel (tamas@tklengyel.com)
+ * Copyright (c) 2015-2016 Tamas K Lengyel (tamas@tklengyel.com)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -181,6 +181,20 @@ int xc_monitor_cpuid(xc_interface *xch, domid_t domain_id, bool enable)
     domctl.u.monitor_op.op = enable ? XEN_DOMCTL_MONITOR_OP_ENABLE
                                     : XEN_DOMCTL_MONITOR_OP_DISABLE;
     domctl.u.monitor_op.event = XEN_DOMCTL_MONITOR_EVENT_CPUID;
+
+    return do_domctl(xch, &domctl);
+}
+
+int xc_monitor_privileged_call(xc_interface *xch, domid_t domain_id,
+                               bool enable)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_monitor_op;
+    domctl.domain = domain_id;
+    domctl.u.monitor_op.op = enable ? XEN_DOMCTL_MONITOR_OP_ENABLE
+                                    : XEN_DOMCTL_MONITOR_OP_DISABLE;
+    domctl.u.monitor_op.event = XEN_DOMCTL_MONITOR_EVENT_PRIVILEGED_CALL;
 
     return do_domctl(xch, &domctl);
 }

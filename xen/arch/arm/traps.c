@@ -41,6 +41,7 @@
 #include <asm/mmio.h>
 #include <asm/cpufeature.h>
 #include <asm/flushtlb.h>
+#include <asm/monitor.h>
 
 #include "decode.h"
 #include "vtimer.h"
@@ -2527,6 +2528,21 @@ bad_data_abort:
     inject_dabt_exception(regs, info.gva, hsr.len);
 }
 
+static void do_trap_smc(struct cpu_user_regs *regs, const union hsr hsr)
+{
+    int rc = 0;
+    if ( current->domain->arch.monitor.privileged_call_enabled )
+    {
+        rc = monitor_smc(regs);
+    }
+
+    if ( rc != 1 )
+    {
+        GUEST_BUG_ON(!psr_mode_is_32bit(regs->cpsr));
+        inject_undef_exception(regs, hsr);
+    }
+}
+
 static void enter_hypervisor_head(struct cpu_user_regs *regs)
 {
     if ( guest_mode(regs) )
@@ -2602,7 +2618,7 @@ asmlinkage void do_trap_hypervisor(struct cpu_user_regs *regs)
          */
         GUEST_BUG_ON(!psr_mode_is_32bit(regs->cpsr));
         perfc_incr(trap_smc32);
-        inject_undef32_exception(regs);
+        do_trap_smc(regs, hsr);
         break;
     case HSR_EC_HVC32:
         GUEST_BUG_ON(!psr_mode_is_32bit(regs->cpsr));
@@ -2635,7 +2651,7 @@ asmlinkage void do_trap_hypervisor(struct cpu_user_regs *regs)
          */
         GUEST_BUG_ON(psr_mode_is_32bit(regs->cpsr));
         perfc_incr(trap_smc64);
-        inject_undef64_exception(regs, hsr.len);
+        do_trap_smc(regs, hsr);
         break;
     case HSR_EC_SYSREG:
         GUEST_BUG_ON(psr_mode_is_32bit(regs->cpsr));

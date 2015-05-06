@@ -124,6 +124,8 @@
 #define VM_EVENT_REASON_DEBUG_EXCEPTION         9
 /* CPUID executed */
 #define VM_EVENT_REASON_CPUID                   10
+/* Privileged call executed (e.g. SMC) */
+#define VM_EVENT_REASON_PRIVILEGED_CALL         11
 
 /* Supported values for the vm_event_write_ctrlreg index. */
 #define VM_EVENT_X86_CR0    0
