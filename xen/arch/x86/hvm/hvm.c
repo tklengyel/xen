@@ -60,7 +60,7 @@
 #include <asm/hvm/cacheattr.h>
 #include <asm/hvm/trace.h>
 #include <asm/hvm/nestedhvm.h>
-#include <asm/hvm/event.h>
+#include <asm/hvm/monitor.h>
 #include <asm/hvm/ioreq.h>
 #include <asm/hvm/vmx/vmx.h>
 #include <asm/altp2m.h>
@@ -1961,7 +1961,7 @@ int hvm_handle_xsetbv(u32 index, u64 new_bv)
 {
     int rc;
 
-    hvm_event_crX(XCR0, new_bv, current->arch.xcr0);
+    hvm_monitor_crX(XCR0, new_bv, current->arch.xcr0);
 
     rc = handle_xsetbv(index, new_bv);
     if ( rc )
@@ -2197,7 +2197,7 @@ int hvm_set_cr0(unsigned long value, bool_t may_defer)
     {
         ASSERT(v->arch.vm_event);
 
-        if ( hvm_event_crX(CR0, value, old_value) )
+        if ( hvm_monitor_crX(CR0, value, old_value) )
         {
             /* The actual write will occur in hvm_do_resume(), if permitted. */
             v->arch.vm_event->write_data.do_write.cr0 = 1;
@@ -2299,7 +2299,7 @@ int hvm_set_cr3(unsigned long value, bool_t may_defer)
     {
         ASSERT(v->arch.vm_event);
 
-        if ( hvm_event_crX(CR3, value, old) )
+        if ( hvm_monitor_crX(CR3, value, old) )
         {
             /* The actual write will occur in hvm_do_resume(), if permitted. */
             v->arch.vm_event->write_data.do_write.cr3 = 1;
@@ -2379,7 +2379,7 @@ int hvm_set_cr4(unsigned long value, bool_t may_defer)
     {
         ASSERT(v->arch.vm_event);
 
-        if ( hvm_event_crX(CR4, value, old_cr) )
+        if ( hvm_monitor_crX(CR4, value, old_cr) )
         {
             /* The actual write will occur in hvm_do_resume(), if permitted. */
             v->arch.vm_event->write_data.do_write.cr4 = 1;
@@ -3766,7 +3766,7 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
         v->arch.vm_event->write_data.msr = msr;
         v->arch.vm_event->write_data.value = msr_content;
 
-        hvm_event_msr(msr, msr_content);
+        hvm_monitor_msr(msr, msr_content);
         return X86EMUL_OKAY;
     }
 
