@@ -3406,10 +3406,39 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
             HVMTRACE_1D(TRAP_DEBUG, exit_qualification);
             write_debugreg(6, exit_qualification | DR_STATUS_RESERVED_ONE);
             if ( !v->domain->debugger_attached )
-                vmx_propagate_intr(intr_info);
+            {
+                unsigned long insn_len = 0;
+                int rc;
+                unsigned long trap_type = MASK_EXTR(intr_info,
+                                                    INTR_INFO_INTR_TYPE_MASK);
+
+                if ( trap_type >= X86_EVENTTYPE_SW_INTERRUPT )
+                    __vmread(VM_EXIT_INSTRUCTION_LEN, &insn_len);
+
+                rc = hvm_monitor_debug(regs->eip,
+                                       HVM_MONITOR_DEBUG_EXCEPTION,
+                                       trap_type, insn_len);
+
+                /*
+                 * !rc  continue normally
+                 * rc > paused waiting for response, work here is done
+                 * rc < error, fall-through to exit_and_crash
+                 */
+                if ( !rc )
+                {
+                    vmx_propagate_intr(intr_info);
+                    break;
+                }
+                if ( rc > 0 )
+                    break;
+            }
             else
+            {
                 domain_pause_for_debugger();
-            break;
+                break;
+            }
+
+            goto exit_and_crash;
         case TRAP_int3: 
         {
             HVMTRACE_1D(TRAP, vector);
@@ -3421,9 +3450,14 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
                 break;
             }
             else {
-                int rc =
-                      hvm_monitor_breakpoint(regs->eip,
-                                             HVM_MONITOR_SOFTWARE_BREAKPOINT);
+                unsigned long insn_len;
+                int rc;
+
+                __vmread(VM_EXIT_INSTRUCTION_LEN, &insn_len);
+                rc = hvm_monitor_debug(regs->eip,
+                                       HVM_MONITOR_SOFTWARE_BREAKPOINT,
+                                       X86_EVENTTYPE_SW_EXCEPTION,
+                                       insn_len);
 
                 if ( !rc )
                 {
@@ -3431,11 +3465,8 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
                         .vector = TRAP_int3,
                         .type = X86_EVENTTYPE_SW_EXCEPTION,
                         .error_code = HVM_DELIVER_NO_ERROR_CODE,
+                        .insn_len = insn_len
                     };
-                    unsigned long insn_len;
-
-                    __vmread(VM_EXIT_INSTRUCTION_LEN, &insn_len);
-                    trap.insn_len = insn_len;
                     hvm_inject_trap(&trap);
                     break;
                 }
@@ -3750,8 +3781,10 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
         vmx_update_cpu_exec_control(v);
         if ( v->arch.hvm_vcpu.single_step )
         {
-            hvm_monitor_breakpoint(regs->eip,
-                                   HVM_MONITOR_SINGLESTEP_BREAKPOINT);
+            hvm_monitor_debug(regs->eip,
+                              HVM_MONITOR_SINGLESTEP_BREAKPOINT,
+                              0, 0);
+
             if ( v->domain->debugger_attached )
                 domain_pause_for_debugger();
         }
