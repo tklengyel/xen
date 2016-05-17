@@ -573,7 +573,7 @@ int arch_domain_create(struct domain *d, unsigned int domcr_flags,
     if ( (rc = domain_io_init(d)) != 0 )
         goto fail;
 
-    if ( (rc = p2m_alloc_table(d)) != 0 )
+    if ( (rc = p2m_table_init(d)) != 0 )
         goto fail;
 
     switch ( config->gic_version )

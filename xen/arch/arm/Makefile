@@ -41,6 +41,7 @@ obj-y += decode.o
 obj-y += processor.o
 obj-y += smc.o
 obj-$(CONFIG_LIVEPATCH) += livepatch.o
+obj-y += altp2m.o
 
 #obj-bin-y += ....o
 

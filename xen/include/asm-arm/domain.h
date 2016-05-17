@@ -14,7 +14,7 @@
 
 struct hvm_domain
 {
-    uint64_t              params[HVM_NR_PARAMS];
+    uint64_t params[HVM_NR_PARAMS];
 }  __cacheline_aligned;
 
 #ifdef CONFIG_ARM_64
@@ -28,6 +28,9 @@ enum domain_type {
 #define is_32bit_domain(d) (1)
 #define is_64bit_domain(d) (0)
 #endif
+
+#define MAX_ALTP2M      10 /* arbitrary */
+#define INVALID_ALTP2M  0xffff
 
 extern int dom0_11_mapping;
 #define is_domain_direct_mapped(d) ((d) == hardware_domain && dom0_11_mapping)
@@ -127,7 +130,20 @@ struct arch_domain
     paddr_t efi_acpi_gpa;
     paddr_t efi_acpi_len;
 #endif
+
+    /* altp2m: allow multiple copies of host p2m */
+    bool_t altp2m_active;
+    struct p2m_domain *altp2m_p2m[MAX_ALTP2M];
+    spinlock_t altp2m_lock;
+    /* TODO: Think about dynamically allocating altp2m_vttbr[] */
+    uint64_t altp2m_vttbr[MAX_ALTP2M];
 }  __cacheline_aligned;
+
+struct altp2mvcpu {
+    uint16_t p2midx;         /* alternate p2m index */
+};
+
+#define vcpu_altp2m(v) ((v)->arch.avcpu)
 
 struct arch_vcpu
 {
@@ -258,6 +274,9 @@ struct arch_vcpu
     struct vtimer phys_timer;
     struct vtimer virt_timer;
     bool_t vtimer_initialized;
+
+    /* Alternate p2m context */
+    struct altp2mvcpu avcpu;
 }  __cacheline_aligned;
 
 void vcpu_show_execution_state(struct vcpu *);

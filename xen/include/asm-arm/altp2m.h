@@ -24,16 +24,18 @@
 /* Alternate p2m on/off per domain */
 static inline bool_t altp2m_active(const struct domain *d)
 {
-    /* Not implemented on ARM. */
-    return 0;
+    return d->arch.altp2m_active;
 }
 
 /* Alternate p2m VCPU */
 static inline uint16_t altp2m_vcpu_idx(const struct vcpu *v)
 {
-    /* Not implemented on ARM, should not be reached. */
-    BUG();
-    return 0;
+    return vcpu_altp2m(v).p2midx;
 }
+
+/* Alternate p2m VCPU */
+void altp2m_vcpu_initialise(struct vcpu *v);
+void altp2m_vcpu_destroy(struct vcpu *v);
+void altp2m_vcpu_reset(struct vcpu *v);
 
 #endif /* __ASM_ARM_ALTP2M_H */

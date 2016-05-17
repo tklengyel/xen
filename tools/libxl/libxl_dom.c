@@ -277,6 +277,16 @@ err:
 }
 #endif
 
+#if defined(__arm__) || defined(__aarch64__)
+static void pv_set_conf_params(xc_interface *handle, uint32_t domid,
+                                libxl_domain_build_info *const info)
+{
+    if ( libxl_defbool_val(info->u.pv.altp2m) )
+        xc_hvm_param_set(handle, domid, HVM_PARAM_ALTP2M,
+                         libxl_defbool_val(info->u.pv.altp2m));
+}
+#endif
+
 static void hvm_set_conf_params(xc_interface *handle, uint32_t domid,
                                 libxl_domain_build_info *const info)
 {
@@ -433,6 +443,10 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
             return rc;
 #endif
     }
+#if defined(__arm__) || defined(__aarch64__)
+    else /* info->type == LIBXL_DOMAIN_TYPE_PV */
+        pv_set_conf_params(ctx->xch, domid, info);
+#endif
 
     rc = libxl__arch_domain_create(gc, d_config, domid);
 

@@ -400,6 +400,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
             b_info->cmdline = b_info->u.pv.cmdline;
             b_info->u.pv.cmdline = NULL;
         }
+        libxl_defbool_setdefault(&b_info->u.pv.altp2m, false);
         break;
     default:
         LOG(ERROR, "invalid domain type %s in create info",

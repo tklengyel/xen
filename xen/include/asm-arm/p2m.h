@@ -7,6 +7,9 @@
 #include <public/memory.h>
 #include <xen/p2m-common.h>
 #include <public/memory.h>
+#include <asm/atomic.h>
+
+#include <asm/hvm/hvm.h>
 
 #define paddr_bits PADDR_BITS
 
@@ -16,6 +19,12 @@ extern unsigned int p2m_ipa_bits;
 struct domain;
 
 extern void memory_type_changed(struct domain *);
+
+typedef enum {
+    p2m_host,
+    p2m_alternate,
+} p2m_class_t;
+
 
 /* Per-p2m-table state */
 struct p2m_domain {
@@ -66,6 +75,17 @@ struct p2m_domain {
     /* Radix tree to store the p2m_access_t settings as the pte's don't have
      * enough available bits to store this information. */
     struct radix_tree_root mem_access_settings;
+
+    /* Alternate p2m: count of vcpu's currently using this p2m. */
+    atomic_t active_vcpus;
+
+    /* Choose between: host/alternate */
+    p2m_class_t p2m_class;
+
+    /* Back pointer to domain */
+    struct domain *domain;
+
+    struct vttbr_data vttbr;
 };
 
 /* List of possible type for each page in the p2m entry.
@@ -88,18 +108,51 @@ typedef enum {
     p2m_max_real_type,  /* Types after this won't be store in the p2m */
 } p2m_type_t;
 
-static inline
-void p2m_mem_access_emulate_check(struct vcpu *v,
-                                  const vm_event_response_t *rsp)
+static inline void p2m_mem_access_emulate_check(struct vcpu *v,
+                                                const vm_event_response_t *rsp)
 {
     /* Not supported on ARM. */
 }
 
-static inline
-void p2m_altp2m_check(struct vcpu *v, uint16_t idx)
-{
-    /* Not supported on ARM. */
-}
+/*
+ * Alternate p2m: shadow p2m tables used for alternate memory views.
+ */
+
+#define altp2m_lock(d)      spin_lock(&(d)->arch.altp2m_lock)
+#define altp2m_unlock(d)    spin_unlock(&(d)->arch.altp2m_lock)
+
+/* Get current alternate p2m table */
+struct p2m_domain *p2m_get_altp2m(struct vcpu *v);
+
+/* Switch alternate p2m for a single vcpu */
+bool_t p2m_switch_vcpu_altp2m_by_id(struct vcpu *v, unsigned int idx);
+
+/* Check to see if vcpu should be switched to a different p2m. */
+void p2m_altp2m_check(struct vcpu *v, uint16_t idx);
+
+/* Flush all the alternate p2m's for a domain */
+void p2m_flush_altp2m(struct domain *d);
+
+/* Alternate p2m paging */
+bool_t p2m_altp2m_lazy_copy(struct vcpu *v, paddr_t gpa,
+                            unsigned long gla, struct npfec npfec,
+                            struct p2m_domain **ap2m);
+
+/* Make a specific alternate p2m valid */
+int p2m_init_altp2m_by_id(struct domain *d, unsigned int idx);
+
+/* Find an available alternate p2m and make it valid */
+int p2m_init_next_altp2m(struct domain *d, uint16_t *idx);
+
+/* Make a specific alternate p2m invalid */
+int p2m_destroy_altp2m_by_id(struct domain *d, unsigned int idx);
+
+/* Switch alternate p2m for entire domain */
+int p2m_switch_domain_altp2m_by_id(struct domain *d, unsigned int idx);
+
+/* Change a gfn->mfn mapping */
+int p2m_change_altp2m_gfn(struct domain *d, unsigned int idx,
+                          gfn_t old_gfn, gfn_t new_gfn);
 
 #define p2m_is_foreign(_t)  ((_t) == p2m_map_foreign)
 #define p2m_is_ram(_t)      ((_t) == p2m_ram_rw || (_t) == p2m_ram_ro)
@@ -126,7 +179,8 @@ int relinquish_p2m_mapping(struct domain *d);
  *
  * Returns 0 for success or -errno.
  */
-int p2m_alloc_table(struct domain *d);
+//int p2m_alloc_table(struct domain *d);
+int p2m_table_init(struct domain *d);
 
 /* Context switch */
 void p2m_save_state(struct vcpu *p);
@@ -249,6 +303,16 @@ static inline int get_page_and_type(struct page_info *page,
 
 /* get host p2m table */
 #define p2m_get_hostp2m(d) (&(d)->arch.p2m)
+
+static inline bool_t p2m_is_hostp2m(const struct p2m_domain *p2m)
+{
+    return p2m->p2m_class == p2m_host;
+}
+
+static inline bool_t p2m_is_altp2m(const struct p2m_domain *p2m)
+{
+    return p2m->p2m_class == p2m_alternate;
+}
 
 /* vm_event and mem_access are supported on any ARM guest */
 static inline bool_t p2m_mem_access_sanity_check(struct domain *d)

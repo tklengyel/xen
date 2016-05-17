@@ -554,6 +554,7 @@ libxl_domain_build_info = Struct("domain_build_info",[
                                       ("features", string, {'const': True}),
                                       # Use host's E820 for PCI passthrough.
                                       ("e820_host", libxl_defbool),
+                                      ("altp2m", libxl_defbool),
                                       ])),
                  ("invalid", None),
                  ], keyvar_init_val = "LIBXL_DOMAIN_TYPE_INVALID")),

@@ -1718,6 +1718,11 @@ static void parse_config_data(const char *config_source,
             exit(1);
         }
 
+#if defined(__arm__) || defined(__aarch64__)
+        /* Enable altp2m for PV guests solely on ARM */
+        xlu_cfg_get_defbool(config, "altp2mpvh", &b_info->u.pv.altp2m, 0);
+#endif
+
         break;
     }
     default:
