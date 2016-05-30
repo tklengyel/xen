@@ -3392,11 +3392,11 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
                 break;
             }
             else {
-                int handled =
+                int rc =
                       hvm_monitor_breakpoint(regs->eip,
                                              HVM_MONITOR_SOFTWARE_BREAKPOINT);
 
-                if ( handled < 0 ) 
+                if ( !rc )
                 {
                     struct hvm_trap trap = {
                         .vector = TRAP_int3,
@@ -3410,7 +3410,7 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
                     hvm_inject_trap(&trap);
                     break;
                 }
-                else if ( handled )
+                if ( rc > 0 )
                     break;
             }
 
