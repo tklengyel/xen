@@ -7,5 +7,5 @@
 gen_user(system_u,, system_r, s0, s0 - mls_systemhigh)
 
 # Other users are defined using the vm role
-gen_user(customer_1,, vm_r, s0, s0)
-gen_user(customer_2,, vm_r, s0, s0)
+gen_user(normal,, vm_r, s0, s0)
+gen_user(jenkins,, vm_r system_r, s0, s0)
