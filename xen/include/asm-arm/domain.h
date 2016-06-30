@@ -131,6 +131,9 @@ struct arch_domain
     struct {
         uint8_t privileged_call_enabled : 1;
     } monitor;
+
+    /* altp2m: allow multiple copies of host p2m */
+    bool_t altp2m_active;
 }  __cacheline_aligned;
 
 struct arch_vcpu
