@@ -97,6 +97,8 @@ struct arch_domain
     struct vpl011 vpl011;
 #endif
 
+    /* altp2m: allow multiple copies of the host's p2m */
+    bool altp2m_active;
 }  __cacheline_aligned;
 
 struct arch_vcpu

@@ -31,6 +31,99 @@
 
 #include <asm/hypercall.h>
 
+#include <asm/altp2m.h>
+
+static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
+{
+    struct xen_hvm_altp2m_op a;
+    struct domain *d = NULL;
+    uint64_t mode;
+    int rc = 0;
+
+    if ( copy_from_guest(&a, arg, 1) )
+        return -EFAULT;
+
+    if ( a.pad1 || a.pad2 ||
+         (a.version != HVMOP_ALTP2M_INTERFACE_VERSION) ||
+         (a.cmd < HVMOP_altp2m_get_domain_state) ||
+         (a.cmd > HVMOP_altp2m_change_gfn) )
+        return -EINVAL;
+
+    d = (a.cmd != HVMOP_altp2m_vcpu_enable_notify) ?
+        rcu_lock_domain_by_any_id(a.domain) : rcu_lock_current_domain();
+
+    if ( d == NULL )
+        return -ESRCH;
+
+    /*
+     * TODO: We prohibit concurrent access of the altp2m interface by locking
+     * the entire domain. Determine which HVMOPs can be executed concurrently.
+     */
+
+    /* Prevent concurrent execution of the following HVMOPs. */
+    domain_lock(d);
+
+    if ( (a.cmd != HVMOP_altp2m_get_domain_state) &&
+         (a.cmd != HVMOP_altp2m_set_domain_state) &&
+         !altp2m_active(d) )
+    {
+        rc = -EOPNOTSUPP;
+        goto out;
+    }
+
+    mode = d->arch.hvm_domain.params[HVM_PARAM_ALTP2M];
+
+    if ( XEN_ALTP2M_disabled == mode )
+    {
+        rc = -EINVAL;
+        goto out;
+    }
+
+    if ( (rc = xsm_hvm_altp2mhvm_op(XSM_OTHER, d, mode, a.cmd)) )
+        goto out;
+
+    switch ( a.cmd )
+    {
+    case HVMOP_altp2m_get_domain_state:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_set_domain_state:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_vcpu_enable_notify:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_create_p2m:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_destroy_p2m:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_switch_p2m:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_set_mem_access:
+        rc = -EOPNOTSUPP;
+        break;
+
+    case HVMOP_altp2m_change_gfn:
+        rc = -EOPNOTSUPP;
+        break;
+    }
+
+out:
+    domain_unlock(d);
+    rcu_unlock_domain(d);
+
+    return rc;
+}
+
 long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
 {
     long rc = 0;
@@ -77,6 +170,10 @@ long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
             monitor_guest_request();
         else
             rc = -EINVAL;
+        break;
+
+    case HVMOP_altp2m:
+        rc = do_altp2m_op(arg);
         break;
 
     default:
