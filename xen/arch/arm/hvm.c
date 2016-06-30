@@ -66,7 +66,7 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
         goto out;
     }
 
-    if ( !(d)->arch.hvm_domain.params[HVM_PARAM_ALTP2M] )
+    if ( !d->arch.hvm_domain.params[HVM_PARAM_ALTP2M] )
     {
         rc = -EINVAL;
         goto out;
@@ -78,7 +78,8 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
     switch ( a.cmd )
     {
     case HVMOP_altp2m_get_domain_state:
-        rc = -EOPNOTSUPP;
+        a.u.domain_state.state = altp2m_active(d);
+        rc = __copy_to_guest(arg, &a, 1) ? -EFAULT : 0;
         break;
 
     case HVMOP_altp2m_set_domain_state:
