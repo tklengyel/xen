@@ -126,6 +126,9 @@ struct arch_domain
     paddr_t efi_acpi_gpa;
     paddr_t efi_acpi_len;
 #endif
+
+    /* altp2m: allow multiple copies of host p2m */
+    bool_t altp2m_active;
 }  __cacheline_aligned;
 
 struct arch_vcpu
