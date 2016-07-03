@@ -337,8 +337,9 @@ void usage(char* progname)
 {
     fprintf(stderr, "Usage: %s [-m] <domain_id> write|exec", progname);
 #if defined(__i386__) || defined(__x86_64__)
-            fprintf(stderr, "|breakpoint|altp2m_write|altp2m_exec|debug|cpuid");
+            fprintf(stderr, "|breakpoint|debug|cpuid");
 #endif
+            fprintf(stderr, "|altp2m_write|altp2m_exec");
             fprintf(stderr,
             "\n"
             "Logs first page writes, execs, or breakpoint traps that occur on the domain.\n"
@@ -411,6 +412,15 @@ int main(int argc, char *argv[])
     {
         breakpoint = 1;
     }
+    else if ( !strcmp(argv[0], "debug") )
+    {
+        debug = 1;
+    }
+    else if ( !strcmp(argv[0], "cpuid") )
+    {
+        cpuid = 1;
+    }
+#endif
     else if ( !strcmp(argv[0], "altp2m_write") )
     {
         default_access = XENMEM_access_rx;
@@ -423,15 +433,6 @@ int main(int argc, char *argv[])
         altp2m = 1;
         memaccess = 1;
     }
-    else if ( !strcmp(argv[0], "debug") )
-    {
-        debug = 1;
-    }
-    else if ( !strcmp(argv[0], "cpuid") )
-    {
-        cpuid = 1;
-    }
-#endif
     else
     {
         usage(argv[0]);
@@ -504,12 +505,14 @@ int main(int argc, char *argv[])
             goto exit;
         }
 
+#if defined(__i386__) || defined(__x86_64__)
         rc = xc_monitor_singlestep( xch, domain_id, 1 );
         if ( rc < 0 )
         {
             ERROR("Error %d failed to enable singlestep monitoring!\n", rc);
             goto exit;
         }
+#endif
     }
 
     if ( memaccess && !altp2m )
@@ -583,7 +586,9 @@ int main(int argc, char *argv[])
                 rc = xc_altp2m_switch_to_view( xch, domain_id, 0 );
                 rc = xc_altp2m_destroy_view(xch, domain_id, altp2m_view_id);
                 rc = xc_altp2m_set_domain_state(xch, domain_id, 0);
+#if defined(__i386__) || defined(__x86_64__)
                 rc = xc_monitor_singlestep(xch, domain_id, 0);
+#endif
             } else {
                 rc = xc_set_mem_access(xch, domain_id, XENMEM_access_rwx, ~0ull, 0);
                 rc = xc_set_mem_access(xch, domain_id, XENMEM_access_rwx, START_PFN,
@@ -775,9 +780,11 @@ int main(int argc, char *argv[])
 exit:
     if ( altp2m )
     {
+#if defined(__i386__) || defined(__x86_64__)
         uint32_t vcpu_id;
         for ( vcpu_id = 0; vcpu_id<XEN_LEGACY_MAX_VCPUS; vcpu_id++)
             rc = control_singlestep(xch, domain_id, vcpu_id, 0);
+#endif
     }
 
     /* Tear down domain xenaccess */
