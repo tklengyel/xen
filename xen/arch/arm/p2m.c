@@ -1172,11 +1172,9 @@ static void p2m_vmid_allocator_init(void)
     set_bit(INVALID_VMID, vmid_mask);
 }
 
-static int p2m_alloc_vmid(struct domain *d)
+static uint8_t p2m_alloc_vmid(void)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
-
-    int rc, vmid;
+    uint8_t vmid;
 
     spin_lock(&vmid_alloc_lock);
 
@@ -1186,28 +1184,23 @@ static int p2m_alloc_vmid(struct domain *d)
 
     if ( vmid == MAX_VMID )
     {
-        rc = -EBUSY;
-        printk(XENLOG_ERR "p2m.c: dom%d: VMID pool exhausted\n", d->domain_id);
+        vmid = INVALID_VMID;
+        printk(XENLOG_ERR "p2m.c: VMID pool exhausted\n");
         goto out;
     }
 
     set_bit(vmid, vmid_mask);
 
-    p2m->vmid = vmid;
-
-    rc = 0;
-
 out:
     spin_unlock(&vmid_alloc_lock);
-    return rc;
+    return vmid;
 }
 
-static void p2m_free_vmid(struct domain *d)
+static void p2m_free_vmid(uint8_t vmid)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     spin_lock(&vmid_alloc_lock);
-    if ( p2m->vmid != INVALID_VMID )
-        clear_bit(p2m->vmid, vmid_mask);
+    if ( vmid != INVALID_VMID )
+        clear_bit(vmid, vmid_mask);
 
     spin_unlock(&vmid_alloc_lock);
 }
@@ -1270,7 +1263,7 @@ void p2m_teardown_one(struct p2m_domain *p2m)
 
     p2m->root = NULL;
 
-    p2m_free_vmid(p2m->domain);
+    p2m_free_vmid(p2m->vmid);
 
     radix_tree_destroy(&p2m->mem_access_settings, NULL);
 
@@ -1285,11 +1278,9 @@ int p2m_init_one(struct domain *d, struct p2m_domain *p2m)
     rwlock_init(&p2m->lock);
     INIT_PAGE_LIST_HEAD(&p2m->pages);
 
-    p2m->vmid = INVALID_VMID;
-
-    rc = p2m_alloc_vmid(d);
-    if ( rc != 0 )
-        return rc;
+    p2m->vmid = p2m_alloc_vmid();
+    if ( p2m->vmid == INVALID_VMID )
+        return -EBUSY;
 
     p2m->max_mapped_gfn = _gfn(0);
     p2m->lowest_mapped_gfn = INVALID_GFN;
