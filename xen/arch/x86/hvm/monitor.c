@@ -158,7 +158,7 @@ int hvm_monitor_invalid_op()
     struct arch_domain *ad = &curr->domain->arch;
     vm_event_request_t req = {};
 
-    if ( !ad->monitor.cpuid_enabled )
+    if ( !ad->monitor.invalid_op_enabled )
         return 0;
 
     req.reason = VM_EVENT_REASON_INVALID_OP;
