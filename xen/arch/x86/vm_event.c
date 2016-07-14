@@ -19,6 +19,7 @@
  */
 
 #include <asm/vm_event.h>
+#include <asm/hvm/support.h>
 
 /* Implicitly serialized by the domctl lock. */
 int vm_event_init_domain(struct domain *d)
@@ -184,6 +185,14 @@ void vm_event_fill_regs(vm_event_request_t *req)
 
     hvm_get_segment_register(curr, x86_seg_cs, &seg);
     req->data.regs.x86.cs_arbytes = seg.attr.bytes;
+}
+
+void vm_event_invalid_op(struct domain *d, struct vcpu *v)
+{
+    if ( !is_hvm_domain(d) )
+        return;
+
+    hvm_ud_intercept(&v->arch.user_regs);
 }
 
 /*

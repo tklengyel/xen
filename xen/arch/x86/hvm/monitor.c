@@ -152,6 +152,21 @@ int hvm_monitor_cpuid(unsigned long insn_length)
     return monitor_traps(curr, 1, &req);
 }
 
+int hvm_monitor_invalid_op()
+{
+    struct vcpu *curr = current;
+    struct arch_domain *ad = &curr->domain->arch;
+    vm_event_request_t req = {};
+
+    if ( !ad->monitor.cpuid_enabled )
+        return 0;
+
+    req.reason = VM_EVENT_REASON_INVALID_OP;
+    req.vcpu_id = curr->vcpu_id;
+
+    return monitor_traps(curr, 1, &req);
+};
+
 /*
  * Local variables:
  * mode: C

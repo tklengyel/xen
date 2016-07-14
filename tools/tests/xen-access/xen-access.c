@@ -337,7 +337,7 @@ void usage(char* progname)
 {
     fprintf(stderr, "Usage: %s [-m] <domain_id> write|exec", progname);
 #if defined(__i386__) || defined(__x86_64__)
-            fprintf(stderr, "|breakpoint|altp2m_write|altp2m_exec|debug|cpuid");
+            fprintf(stderr, "|breakpoint|altp2m_write|altp2m_exec|debug|cpuid|invalid_op");
 #endif
             fprintf(stderr,
             "\n"
@@ -365,6 +365,7 @@ int main(int argc, char *argv[])
     int altp2m = 0;
     int debug = 0;
     int cpuid = 0;
+    int invalid_op = 0;
     uint16_t altp2m_view_id = 0;
 
     char* progname = argv[0];
@@ -430,6 +431,10 @@ int main(int argc, char *argv[])
     else if ( !strcmp(argv[0], "cpuid") )
     {
         cpuid = 1;
+    }
+    else if ( !strcmp(argv[0], "invalid_op") )
+    {
+        invalid_op = 1;
     }
 #endif
     else
@@ -563,6 +568,16 @@ int main(int argc, char *argv[])
         }
     }
 
+    if ( invalid_op )
+    {
+        rc = xc_monitor_invalid_op(xch, domain_id, 1);
+        if ( rc < 0 )
+        {
+            ERROR("Error %d setting #UD listener with vm_event\n", rc);
+            goto exit;
+        }
+    }
+
     /* Wait for access */
     for (;;)
     {
@@ -577,6 +592,8 @@ int main(int argc, char *argv[])
                 rc = xc_monitor_debug_exceptions(xch, domain_id, 0, 0);
             if ( cpuid )
                 rc = xc_monitor_cpuid(xch, domain_id, 0);
+            if ( invalid_op )
+                rc = xc_monitor_invalid_op(xch, domain_id, 0);
 
             if ( altp2m )
             {
@@ -746,6 +763,12 @@ int main(int argc, char *argv[])
                 rsp.flags |= VM_EVENT_FLAG_SET_REGISTERS;
                 rsp.data = req.data;
                 rsp.data.regs.x86.rip += req.u.cpuid.insn_length;
+                break;
+            case VM_EVENT_REASON_INVALID_OP:
+                printf("#UD executed: rip=%016"PRIx64", vcpu %d.\n",
+                       req.data.regs.x86.rip,
+                       req.vcpu_id);
+                rsp.flags |= VM_EVENT_FLAG_INVALID_OP;
                 break;
             default:
                 fprintf(stderr, "UNKNOWN REASON CODE %d\n", req.reason);

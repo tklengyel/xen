@@ -97,6 +97,14 @@
  * Requires the vCPU to be paused already (synchronous events only).
  */
 #define VM_EVENT_FLAG_SET_REGISTERS      (1 << 8)
+/*
+ * This flag can be used on a response to signal to the hypervisor to continue
+ * on the execution path as it would normally when an #UD invalid
+ * opcode exception is raised. Intended to be used in response to
+ * VM_EVENT_REASON_INVALID_OP events.
+ * Requires the vCPU to be paused already (synchronous events only).
+ */
+#define VM_EVENT_FLAG_INVALID_OP    (1 << 9)
 
 /*
  * Reasons for the vm event request
@@ -124,6 +132,8 @@
 #define VM_EVENT_REASON_DEBUG_EXCEPTION         9
 /* CPUID executed */
 #define VM_EVENT_REASON_CPUID                   10
+/* Invalid opcode (#UD) executed */
+#define VM_EVENT_REASON_INVALID_OP              11
 
 /* Supported values for the vm_event_write_ctrlreg index. */
 #define VM_EVENT_X86_CR0    0

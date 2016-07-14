@@ -3477,9 +3477,22 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
             /* Already handled above. */
             break;
         case TRAP_invalid_op:
+        {
+            int rc = hvm_monitor_invalid_op();
+
             HVMTRACE_1D(TRAP, vector);
-            hvm_ud_intercept(regs);
+
+            /*
+             * rc < 0 error in monitor/vm_event, crash
+             * !rc    continue normally
+             * rc > 0 paused waiting for response, work here is done
+             */
+            if ( rc < 0 )
+                goto exit_and_crash;
+            if ( !rc )
+                hvm_ud_intercept(regs);
             break;
+        }
         default:
             HVMTRACE_1D(TRAP, vector);
             goto exit_and_crash;
