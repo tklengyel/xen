@@ -41,6 +41,7 @@
 #include <xenctrl.h>
 #include <xenevtchn.h>
 #include <xen/vm_event.h>
+#include <libvmi/libvmi.h>
 
 #if defined(__arm__) || defined(__aarch64__)
 #include <xen/arch-arm.h>
@@ -367,6 +368,8 @@ int main(int argc, char *argv[])
     int cpuid = 0;
     int invalid_op = 0;
     uint16_t altp2m_view_id = 0;
+    vmi_instance_t vmi;
+    reg_t efer;
 
     char* progname = argv[0];
     argv++;
@@ -435,6 +438,12 @@ int main(int argc, char *argv[])
     else if ( !strcmp(argv[0], "invalid_op") )
     {
         invalid_op = 1;
+        vmi_init(&vmi, VMI_AUTO | VMI_INIT_COMPLETE, "windows7-sp1-x86");
+        vmi_get_vcpureg(vmi, &efer, MSR_EFER, 0);
+        printf("EFER: 0x%lx\n", efer);
+        efer &= ~1;
+        printf("Setting EFER to : 0x%lx\n", efer);
+        vmi_set_vcpureg(vmi, efer, MSR_EFER, 0);
     }
 #endif
     else
