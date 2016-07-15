@@ -192,7 +192,8 @@ void vm_event_invalid_op(struct domain *d, struct vcpu *v)
     if ( !is_hvm_domain(d) )
         return;
 
-    hvm_ud_intercept(&v->arch.user_regs);
+    gdprintk(XENLOG_ERR, "Setting do invalid op\n");
+    v->arch.vm_event->do_invalid_op = 1;
 }
 
 /*

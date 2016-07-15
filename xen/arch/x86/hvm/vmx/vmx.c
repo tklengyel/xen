@@ -3480,6 +3480,8 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
         {
             int rc = hvm_monitor_invalid_op();
 
+            gdprintk(XENLOG_WARNING, "monitor invalid op rc: %i\n", rc);
+
             HVMTRACE_1D(TRAP, vector);
 
             /*

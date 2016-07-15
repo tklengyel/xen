@@ -492,6 +492,12 @@ void hvm_do_resume(struct vcpu *v)
             v->arch.vm_event->emulate_flags = 0;
         }
 
+        if ( unlikely(v->arch.vm_event->do_invalid_op) )
+        {
+            hvm_ud_intercept(guest_cpu_user_regs());
+            v->arch.vm_event->do_invalid_op = 0;
+        }
+
         if ( w->do_write.msr )
         {
             hvm_msr_write_intercept(w->msr, w->value, 0);
