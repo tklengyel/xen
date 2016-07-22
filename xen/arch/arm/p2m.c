@@ -730,7 +730,6 @@ enum p2m_operation {
     INSERT,
     REMOVE,
     RELINQUISH,
-    CACHEFLUSH,
     MEMACCESS,
 };
 
@@ -985,36 +984,6 @@ static int apply_one_level(struct domain *d,
          * scale.
          */
         return P2M_ONE_PROGRESS;
-
-    case CACHEFLUSH:
-        if ( !p2m_valid(orig_pte) )
-        {
-            *addr = (*addr + level_size) & level_mask;
-            return P2M_ONE_PROGRESS_NOP;
-        }
-
-        if ( level < 3 && p2m_table(orig_pte) )
-            return P2M_ONE_DESCEND;
-
-        /*
-         * could flush up to the next superpage boundary, but would
-         * need to be careful about preemption, so just do one 4K page
-         * now and return P2M_ONE_PROGRESS{,_NOP} so that the caller will
-         * continue to loop over the rest of the range.
-         */
-        if ( p2m_is_ram(orig_pte.p2m.type) )
-        {
-            unsigned long offset = paddr_to_pfn(*addr & ~level_mask);
-            flush_page_to_ram(orig_pte.p2m.base + offset);
-
-            *addr += PAGE_SIZE;
-            return P2M_ONE_PROGRESS;
-        }
-        else
-        {
-            *addr += PAGE_SIZE;
-            return P2M_ONE_PROGRESS_NOP;
-        }
 
     case MEMACCESS:
         if ( level < 3 )
@@ -1563,12 +1532,44 @@ int p2m_cache_flush(struct domain *d, gfn_t start, unsigned long nr)
 {
     struct p2m_domain *p2m = &d->arch.p2m;
     gfn_t end = gfn_add(start, nr);
+    p2m_type_t t;
+    unsigned int order;
 
     start = gfn_max(start, p2m->lowest_mapped_gfn);
     end = gfn_min(end, p2m->max_mapped_gfn);
 
-    return apply_p2m_changes(d, CACHEFLUSH, start, nr, INVALID_MFN,
-                             0, p2m_invalid, d->arch.p2m.default_access);
+    /* XXX: Should we use write lock here? */
+    p2m_read_lock(p2m);
+
+    for ( ; gfn_x(start) < gfn_x(end); start = gfn_add(start, 1UL << order) )
+    {
+        mfn_t mfn = p2m_get_entry(p2m, start, &t, NULL, &order);
+
+        /* Skip hole and non-RAM page */
+        if ( mfn_eq(mfn, INVALID_MFN) || !p2m_is_ram(t) )
+        {
+            /*
+             * the order corresponds to the order of the mapping in the
+             * page table. so we need to align the gfn before
+             * incrementing.
+             */
+            start = _gfn(gfn_x(start) & ~((1UL << order) - 1));
+            continue;
+        }
+
+        /*
+         * Could flush up to the next superpage boundary, but we would
+         * need to be careful about preemption, so just do one 4K page
+         * now.
+         * XXX: Implement preemption.
+         */
+        flush_page_to_ram(mfn_x(mfn));
+        order = 0;
+    }
+
+    p2m_read_unlock(p2m);
+
+    return 0;
 }
 
 mfn_t gfn_to_mfn(struct domain *d, gfn_t gfn)
