@@ -162,6 +162,26 @@ void dump_p2m_lookup(struct domain *d, paddr_t addr)
 
     dump_pt_walk(page_to_maddr(p2m->root), addr,
                  P2M_ROOT_LEVEL, P2M_ROOT_PAGES);
+    printk("\n");
+
+    if ( altp2m_active(d) )
+    {
+        unsigned int i;
+
+        for ( i = 0; i < MAX_ALTP2M; i++ )
+        {
+            if ( d->arch.altp2m_p2m[i] == NULL )
+                continue;
+
+            p2m = d->arch.altp2m_p2m[i];
+
+            printk("AP2M[%d] @ %p mfn:0x%lx\n",
+                    i, p2m->root, page_to_mfn(p2m->root));
+
+            dump_pt_walk(page_to_maddr(p2m->root), addr, P2M_ROOT_LEVEL, P2M_ROOT_PAGES);
+            printk("\n");
+        }
+    }
 }
 
 void p2m_save_state(struct vcpu *p)
