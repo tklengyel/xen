@@ -592,10 +592,8 @@ enum p2m_operation {
  * TODO: Handle superpages, for now we only take special references for leaf
  * pages (specifically foreign ones, which can't be super mapped today).
  */
-static void p2m_put_l3_page(const lpae_t pte)
+static void p2m_put_l3_page(mfn_t mfn, p2m_type_t type)
 {
-    ASSERT(p2m_valid(pte));
-
     /*
      * TODO: Handle other p2m types
      *
@@ -603,12 +601,10 @@ static void p2m_put_l3_page(const lpae_t pte)
      * flush the TLBs if the page is reallocated before the end of
      * this loop.
      */
-    if ( p2m_is_foreign(pte.p2m.type) )
+    if ( p2m_is_foreign(type) )
     {
-        unsigned long mfn = pte.p2m.base;
-
-        ASSERT(mfn_valid(mfn));
-        put_page(mfn_to_page(mfn));
+        ASSERT(mfn_valid(mfn_x(mfn)));
+        put_page(mfn_to_page(mfn_x(mfn)));
     }
 }
 
@@ -742,7 +738,8 @@ static int apply_one_level(struct domain *d,
                  */
                 BUG_ON(level < 3 && p2m_table(orig_pte));
                 if ( level == 3 )
-                    p2m_put_l3_page(orig_pte);
+                    p2m_put_l3_page(_mfn(orig_pte.p2m.base),
+                                    orig_pte.p2m.type);
             }
             else /* New mapping */
                 p2m->stats.mappings[level]++;
@@ -842,7 +839,7 @@ static int apply_one_level(struct domain *d,
         p2m->stats.mappings[level]--;
 
         if ( level == 3 )
-            p2m_put_l3_page(orig_pte);
+            p2m_put_l3_page(_mfn(orig_pte.p2m.base), orig_pte.p2m.type);
 
         /*
          * This is still a single pte write, no matter the level, so no need to
