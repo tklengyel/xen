@@ -729,7 +729,6 @@ static int p2m_mem_access_radix_set(struct p2m_domain *p2m, gfn_t gfn,
 enum p2m_operation {
     INSERT,
     REMOVE,
-    RELINQUISH,
     MEMACCESS,
 };
 
@@ -916,7 +915,6 @@ static int apply_one_level(struct domain *d,
 
         break;
 
-    case RELINQUISH:
     case REMOVE:
         if ( !p2m_valid(orig_pte) )
         {
@@ -1100,17 +1098,6 @@ static int apply_p2m_changes(struct domain *d,
         {
             switch ( op )
             {
-            case RELINQUISH:
-                /*
-                 * Arbitrarily, preempt every 512 operations or 8192 nops.
-                 * 512*P2M_ONE_PROGRESS == 8192*P2M_ONE_PROGRESS_NOP == 0x2000
-                 * This is set in preempt_count_limit.
-                 *
-                 */
-                p2m->lowest_mapped_gfn = _gfn(addr >> PAGE_SHIFT);
-                rc = -ERESTART;
-                goto out;
-
             case MEMACCESS:
             {
                 /*
@@ -1516,16 +1503,63 @@ int p2m_init(struct domain *d)
     return rc;
 }
 
+/*
+ * The function will go through the p2m and remove page reference when it
+ * is required.
+ * The mapping are left intact in the p2m. This is fine because the
+ * domain will never run at that point.
+ *
+ * XXX: Check what does it mean for other part (such as lookup)
+ */
 int relinquish_p2m_mapping(struct domain *d)
 {
     struct p2m_domain *p2m = &d->arch.p2m;
-    unsigned long nr;
+    unsigned long count = 0;
+    p2m_type_t t;
+    int rc = 0;
+    unsigned int order;
 
-    nr = gfn_x(p2m->max_mapped_gfn) - gfn_x(p2m->lowest_mapped_gfn);
+    /* Convenience alias */
+    gfn_t start = p2m->lowest_mapped_gfn;
+    gfn_t end = p2m->max_mapped_gfn;
 
-    return apply_p2m_changes(d, RELINQUISH, p2m->lowest_mapped_gfn, nr,
-                             INVALID_MFN, 0, p2m_invalid,
-                             d->arch.p2m.default_access);
+    p2m_write_lock(p2m);
+
+    for ( ; gfn_x(start) < gfn_x(end); start = gfn_add(start, 1UL << order) )
+    {
+        mfn_t mfn = p2m_get_entry(p2m, start, &t, NULL, &order);
+
+        count++;
+        /*
+         * Arbitrarily preempt every 512 iterations.
+         */
+        if ( !(count % 512) && hypercall_preempt_check() )
+        {
+            rc = -ERESTART;
+            break;
+        }
+
+        /* Skip hole and any superpage */
+        if ( mfn_eq(mfn, INVALID_MFN) || order != 0 )
+            /*
+             * The order corresponds to the order of the mapping in the
+             * page table. So we need to align the GFN before
+             * incrementing.
+             */
+            start = _gfn(gfn_x(start) & ~((1UL << order) - 1));
+        else
+            p2m_put_l3_page(mfn, t);
+    }
+
+    /*
+     * Update lowest_mapped_gfn so on the next call we still start where
+     * we stopped.
+     */
+    p2m->lowest_mapped_gfn = start;
+
+    p2m_write_unlock(p2m);
+
+    return rc;
 }
 
 int p2m_cache_flush(struct domain *d, gfn_t start, unsigned long nr)
