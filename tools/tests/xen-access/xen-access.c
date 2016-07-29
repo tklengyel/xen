@@ -38,6 +38,7 @@
 #include <sys/mman.h>
 #include <sys/poll.h>
 
+#define XC_WANT_COMPAT_MAP_FOREIGN_API
 #include <xenctrl.h>
 #include <xenevtchn.h>
 #include <xen/vm_event.h>
@@ -48,6 +49,8 @@
 #elif defined(__i386__) || defined(__x86_64__)
 #define START_PFN 0ULL
 #endif
+
+#define INVALID_GFN ~(0UL)
 
 #define DPRINTF(a, b...) fprintf(stderr, a, ## b)
 #define ERROR(a, b...) fprintf(stderr, a "\n", ## b)
@@ -72,14 +75,113 @@ typedef struct xenaccess {
     xen_pfn_t max_gpfn;
 
     vm_event_t vm_event;
+
+    unsigned int ap2m_idx;
+    xen_pfn_t gfn_old;
+    xen_pfn_t gfn_new;
 } xenaccess_t;
 
 static int interrupted;
+static int gfn_changed = 0;
 bool evtchn_bind = 0, evtchn_open = 0, mem_access_enable = 0;
 
 static void close_handler(int sig)
 {
     interrupted = sig;
+}
+
+static int xenaccess_copy_gfn(xc_interface *xch,
+                              domid_t domain_id,
+                              xen_pfn_t dst_gfn,
+                              xen_pfn_t src_gfn)
+{
+    void *src_vaddr = NULL;
+    void *dst_vaddr = NULL;
+
+    src_vaddr = xc_map_foreign_range(xch, domain_id, XC_PAGE_SIZE,
+                                     PROT_READ, src_gfn);
+    if ( src_vaddr == MAP_FAILED || src_vaddr == NULL)
+        return -1;
+
+    dst_vaddr = xc_map_foreign_range(xch, domain_id, XC_PAGE_SIZE,
+                                     PROT_WRITE, dst_gfn);
+    if ( dst_vaddr == MAP_FAILED || dst_vaddr == NULL)
+    {
+        munmap(src_vaddr, XC_PAGE_SIZE);
+        return -1;
+    }
+
+    memcpy(dst_vaddr, src_vaddr, XC_PAGE_SIZE);
+
+    munmap(src_vaddr, XC_PAGE_SIZE);
+    munmap(dst_vaddr, XC_PAGE_SIZE);
+
+    return 0;
+}
+
+/*
+ * This function allocates and populates a page in the guest's physmap that is
+ * subsequently filled with contents of the trapping address. Finally, through
+ * the invocation of xc_altp2m_change_gfn, the altp2m subsystem changes the gfn
+ * to mfn mapping of the target altp2m view.
+ */
+static int xenaccess_change_gfn(xc_interface *xch,
+                                domid_t domain_id,
+                                unsigned int ap2m_idx,
+                                xen_pfn_t gfn_old,
+                                xen_pfn_t *gfn_new)
+{
+    int rc;
+
+    /*
+     * We perform this function only once as it is intended to be used for
+     * testing and demonstration purposes. Thus, we signalize that further
+     * altp2m-related traps will not change trapping gfn's.
+     */
+    gfn_changed = 1;
+
+    rc = xc_domain_increase_reservation_exact(xch, domain_id, 1, 0, 0, gfn_new);
+    if ( rc < 0 )
+        return -1;
+
+    rc = xc_domain_populate_physmap_exact(xch, domain_id, 1, 0, 0, gfn_new);
+    if ( rc < 0 )
+        goto err;
+
+    /* Copy content of the old gfn into the newly allocated gfn */
+    rc = xenaccess_copy_gfn(xch, domain_id, *gfn_new, gfn_old);
+    if ( rc < 0 )
+        goto err;
+
+    xc_altp2m_change_gfn(xch, domain_id, ap2m_idx, gfn_old, *gfn_new);
+
+    return 0;
+
+err:
+    xc_domain_decrease_reservation_exact(xch, domain_id, 1, 0, gfn_new);
+
+    return -1;
+}
+
+static int xenaccess_reset_gfn(xc_interface *xch,
+                               domid_t domain_id,
+                               unsigned int ap2m_idx,
+                               xen_pfn_t gfn_old,
+                               xen_pfn_t gfn_new)
+{
+    int rc;
+
+    /* Reset previous state */
+    xc_altp2m_change_gfn(xch, domain_id, ap2m_idx, gfn_old, INVALID_GFN);
+
+    /* Invalidate the new gfn */
+    xc_altp2m_change_gfn(xch, domain_id, ap2m_idx, gfn_new, INVALID_GFN);
+
+    rc = xc_domain_decrease_reservation_exact(xch, domain_id, 1, 0, &gfn_new);
+    if ( rc < 0 )
+        return -1;
+
+    return 0;
 }
 
 int xc_wait_for_event_or_timeout(xc_interface *xch, xenevtchn_handle *xce, unsigned long ms)
@@ -227,6 +329,10 @@ xenaccess_t *xenaccess_init(xc_interface **xch_r, domid_t domain_id)
     }
     mem_access_enable = 1;
 
+    xenaccess->ap2m_idx = ~(0);
+    xenaccess->gfn_old = INVALID_GFN;
+    xenaccess->gfn_new = INVALID_GFN;
+
     /* Open event channel */
     xenaccess->vm_event.xce_handle = xenevtchn_open(NULL, 0);
     if ( xenaccess->vm_event.xce_handle == NULL )
@@ -339,7 +445,7 @@ void usage(char* progname)
 #if defined(__i386__) || defined(__x86_64__)
             fprintf(stderr, "|breakpoint|debug|cpuid");
 #endif
-            fprintf(stderr, "|altp2m_write|altp2m_exec");
+            fprintf(stderr, "|altp2m_write|altp2m_exec|altp2m_remap");
             fprintf(stderr,
             "\n"
             "Logs first page writes, execs, or breakpoint traps that occur on the domain.\n"
@@ -364,6 +470,7 @@ int main(int argc, char *argv[])
     int breakpoint = 0;
     int shutting_down = 0;
     int altp2m = 0;
+    int altp2m_remap = 0;
     int debug = 0;
     int cpuid = 0;
     uint16_t altp2m_view_id = 0;
@@ -431,6 +538,13 @@ int main(int argc, char *argv[])
     {
         default_access = XENMEM_access_rw;
         altp2m = 1;
+        memaccess = 1;
+    }
+    else if ( !strcmp(argv[0], "altp2m_remap") )
+    {
+        default_access = XENMEM_access_rw;
+        altp2m = 1;
+        altp2m_remap = 1;
         memaccess = 1;
     }
     else
@@ -589,6 +703,14 @@ int main(int argc, char *argv[])
 #if defined(__i386__) || defined(__x86_64__)
                 rc = xc_monitor_singlestep(xch, domain_id, 0);
 #endif
+
+                /* Reset remapped gfn. */
+                if ( altp2m_remap && xenaccess->gfn_new != INVALID_GFN )
+                    rc = xenaccess_reset_gfn(xenaccess->xc_handle,
+                                             xenaccess->vm_event.domain_id,
+                                             xenaccess->ap2m_idx,
+                                             xenaccess->gfn_old,
+                                             xenaccess->gfn_new);
             } else {
                 rc = xc_set_mem_access(xch, domain_id, XENMEM_access_rwx, ~0ull, 0);
                 rc = xc_set_mem_access(xch, domain_id, XENMEM_access_rwx, START_PFN,
@@ -662,10 +784,42 @@ int main(int argc, char *argv[])
 
                 if ( altp2m && req.flags & VM_EVENT_FLAG_ALTERNATE_P2M)
                 {
-                    DPRINTF("\tSwitching back to default view!\n");
-
                     rsp.flags |= (VM_EVENT_FLAG_ALTERNATE_P2M | VM_EVENT_FLAG_TOGGLE_SINGLESTEP);
-                    rsp.altp2m_idx = 0;
+
+                    if ( altp2m_remap )
+                    {
+                        if ( !gfn_changed )
+                        {
+                            /* Store trapping gfn and ap2m index for cleanup. */
+                            xenaccess->gfn_old = req.u.mem_access.gfn;
+                            xenaccess->ap2m_idx = req.altp2m_idx;
+
+                            /* Note that this function is called only once. */
+                            rc = xenaccess_change_gfn(xenaccess->xc_handle, domain_id, req.altp2m_idx,
+                                                      xenaccess->gfn_old, &xenaccess->gfn_new);
+                            if (rc < 0)
+                            {
+                                ERROR("Error remapping gfn=%"PRIx64"\n", xenaccess->gfn_old);
+                                interrupted = -1;
+                                continue;
+                            }
+
+                            /* Do not change the currently active altp2m view, yet. */
+                            rsp.altp2m_idx = req.altp2m_idx;
+                        }
+                        else
+                        {
+                            DPRINTF("\tSwitching back to default view!\n");
+
+                            rsp.altp2m_idx = 0;
+                        }
+                    }
+                    else
+                    {
+                        DPRINTF("\tSwitching back to default view!\n");
+
+                        rsp.altp2m_idx = 0;
+                    }
                 }
                 else if ( default_access != after_first_access )
                 {
