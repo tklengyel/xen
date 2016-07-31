@@ -14,6 +14,8 @@
 #include <asm/hardirq.h>
 #include <asm/page.h>
 
+#include <asm/altp2m.h>
+
 #ifdef CONFIG_ARM_64
 static unsigned int __read_mostly p2m_root_order;
 static unsigned int __read_mostly p2m_root_level;
@@ -1293,6 +1295,12 @@ static void p2m_teardown_hostp2m(struct domain *d)
 
 void p2m_teardown(struct domain *d)
 {
+    /*
+     * Teardown altp2m unconditionally so that altp2m gets always destroyed --
+     * even if HVM_PARAM_ALTP2M gets reset before teardown.
+     */
+    altp2m_teardown(d);
+
     p2m_teardown_hostp2m(d);
 }
 
@@ -1307,7 +1315,13 @@ static int p2m_init_hostp2m(struct domain *d)
 
 int p2m_init(struct domain *d)
 {
-    return p2m_init_hostp2m(d);
+    int rc;
+
+    rc = p2m_init_hostp2m(d);
+    if ( rc )
+        return rc;
+
+    return altp2m_init(d);
 }
 
 /*
