@@ -1,6 +1,7 @@
 #ifndef __ASM_DOMAIN_H__
 #define __ASM_DOMAIN_H__
 
+#include <xen/altp2m-common.h>
 #include <xen/cache.h>
 #include <xen/sched.h>
 #include <asm/page.h>
@@ -97,8 +98,16 @@ struct arch_domain
     struct vpl011 vpl011;
 #endif
 
-    /* altp2m: allow multiple copies of the host's p2m */
+    /*
+     * Lock that protects critical altp2m operations that must not be performed
+     * concurrently.
+     */
+    spinlock_t altp2m_lock;
+
+    /* Altp2m: allow multiple copies of the host's p2m. */
     bool altp2m_active;
+
+    struct p2m_domain *altp2m_p2m[MAX_ALTP2M];
 }  __cacheline_aligned;
 
 struct arch_vcpu

@@ -5,6 +5,7 @@ subdir-$(CONFIG_ARM_64) += efi
 subdir-$(CONFIG_ACPI) += acpi
 
 obj-$(CONFIG_HAS_ALTERNATIVE) += alternative.o
+obj-y += altp2m.o
 obj-y += bootfdt.init.o
 obj-y += cpu.o
 obj-y += cpuerrata.o
