@@ -71,4 +71,16 @@ void altp2m_flush(struct domain *d);
 int altp2m_destroy_by_id(struct domain *d,
                          unsigned int idx);
 
+/*
+ * Set memory access attributes of the gfn in the altp2m view. If the altp2m
+ * view does not contain the particular entry, copy it first from the hostp2m.
+ *
+ * Currently supports memory attribute adoptions of only one (4K) page.
+ */
+int altp2m_set_mem_access(struct domain *d,
+                          struct p2m_domain *hp2m,
+                          struct p2m_domain *ap2m,
+                          p2m_access_t a,
+                          gfn_t gfn);
+
 #endif /* __ASM_ARM_ALTP2M_H */
