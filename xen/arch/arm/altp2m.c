@@ -122,6 +122,29 @@ int altp2m_init_by_id(struct domain *d, unsigned int idx)
     return rc;
 }
 
+int altp2m_init_next_available(struct domain *d, uint16_t *idx)
+{
+    int rc = -EINVAL;
+    uint16_t i;
+
+    altp2m_lock(d);
+
+    for ( i = 0; i < MAX_ALTP2M; i++ )
+    {
+        if ( d->arch.altp2m_p2m[i] != NULL )
+            continue;
+
+        rc = altp2m_init_helper(d, i);
+        *idx = i;
+
+        break;
+    }
+
+    altp2m_unlock(d);
+
+    return rc;
+}
+
 int altp2m_init(struct domain *d)
 {
     unsigned int i;

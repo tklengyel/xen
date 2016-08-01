@@ -56,6 +56,10 @@ struct p2m_domain *altp2m_get_altp2m(struct vcpu *v);
 int altp2m_init_by_id(struct domain *d,
                       unsigned int idx);
 
+/* Find and initialize the next available alternate p2m. */
+int altp2m_init_next_available(struct domain *d,
+                               uint16_t *idx);
+
 /* Flush all the alternate p2m's for a domain. */
 void altp2m_flush(struct domain *d);
 
