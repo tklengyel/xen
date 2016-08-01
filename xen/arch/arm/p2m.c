@@ -582,10 +582,9 @@ static int p2m_create_table(struct p2m_domain *p2m, lpae_t *entry)
     return 0;
 }
 
-static int __p2m_get_mem_access(struct domain *d, gfn_t gfn,
+static int __p2m_get_mem_access(struct p2m_domain *p2m, gfn_t gfn,
                                 xenmem_access_t *access)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     void *i;
     unsigned int index;
 
@@ -1442,7 +1441,7 @@ mfn_t gfn_to_mfn(struct domain *d, gfn_t gfn)
  * we indeed found a conflicting mem_access setting.
  */
 static struct page_info*
-p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag)
+p2m_mem_access_check_and_get_page(struct vcpu *v, vaddr_t gva, unsigned long flag)
 {
     long rc;
     paddr_t ipa;
@@ -1451,7 +1450,7 @@ p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag)
     xenmem_access_t xma;
     p2m_type_t t;
     struct page_info *page = NULL;
-    struct p2m_domain *p2m = p2m_get_hostp2m(current->domain);
+    struct p2m_domain *p2m = p2m_get_hostp2m(v->domain);
 
     rc = gva_to_ipa(gva, &ipa, flag);
     if ( rc < 0 )
@@ -1463,7 +1462,7 @@ p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag)
      * We do this first as this is faster in the default case when no
      * permission is set on the page.
      */
-    rc = __p2m_get_mem_access(current->domain, gfn, &xma);
+    rc = __p2m_get_mem_access(p2m, gfn, &xma);
     if ( rc < 0 )
         goto err;
 
@@ -1527,7 +1526,7 @@ p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag)
 
     page = mfn_to_page(mfn_x(mfn));
 
-    if ( unlikely(!get_page(page, current->domain)) )
+    if ( unlikely(!get_page(page, v->domain)) )
         page = NULL;
 
 err:
@@ -1585,7 +1584,7 @@ struct page_info *get_page_from_gva(struct vcpu *v, vaddr_t va,
 
 err:
     if ( !page && p2m->mem_access_enabled )
-        page = p2m_mem_access_check_and_get_page(va, flags);
+        page = p2m_mem_access_check_and_get_page(v, va, flags);
 
     p2m_read_unlock(p2m);
 
@@ -1891,7 +1890,7 @@ int p2m_get_mem_access(struct domain *d, gfn_t gfn,
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
     p2m_read_lock(p2m);
-    ret = __p2m_get_mem_access(d, gfn, access);
+    ret = __p2m_get_mem_access(p2m, gfn, access);
     p2m_read_unlock(p2m);
 
     return ret;
