@@ -1581,7 +1581,24 @@ struct page_info *get_page_from_gva(struct vcpu *v, vaddr_t va,
 
     p2m_read_lock(p2m);
 
-    rc = gvirt_to_maddr(va, &maddr, flags);
+    /*
+     * If altp2m is active, we need to translate the gva upon the hostp2m's
+     * vttbr, as it contains all valid mappings while the currently active
+     * altp2m view might not have the required gva mapping yet.
+     */
+    if ( unlikely(altp2m_active(d)) )
+    {
+        unsigned long flags = 0;
+        uint64_t ovttbr = READ_SYSREG64(VTTBR_EL2);
+
+        p2m_switch_vttbr_and_get_flags(ovttbr, p2m->vttbr, flags);
+
+        rc = gvirt_to_maddr(va, &maddr, flags);
+
+        p2m_restore_vttbr_and_set_flags(ovttbr, flags);
+    }
+    else
+        rc = gvirt_to_maddr(va, &maddr, flags);
 
     if ( rc )
         goto err;
