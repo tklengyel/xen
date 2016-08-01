@@ -32,6 +32,54 @@ struct p2m_domain *altp2m_get_altp2m(struct vcpu *v)
     return v->domain->arch.altp2m_p2m[index];
 }
 
+int altp2m_switch_domain_altp2m_by_id(struct domain *d, unsigned int idx)
+{
+    struct vcpu *v;
+    int rc = -EINVAL;
+
+    if ( idx >= MAX_ALTP2M )
+        return rc;
+
+    domain_pause_except_self(d);
+
+    altp2m_lock(d);
+
+    if ( d->arch.altp2m_p2m[idx] != NULL )
+    {
+        for_each_vcpu( d, v )
+            if ( idx != altp2m_vcpu(v).p2midx )
+            {
+                atomic_dec(&altp2m_get_altp2m(v)->active_vcpus);
+                altp2m_vcpu(v).p2midx = idx;
+                atomic_inc(&altp2m_get_altp2m(v)->active_vcpus);
+
+                /*
+                 * In case it is the guest domain, which indirectly called this
+                 * function, the current vcpu will not switch its context
+                 * within the function "p2m_restore_state". That is, changing
+                 * the altp2m_vcpu(v).p2midx will not lead to the requested
+                 * altp2m switch on that specific vcpu. To achieve the desired
+                 * behavior, we write to VTTBR_EL2 directly.
+                 */
+                if ( v->domain == d && v == current )
+                {
+                    struct p2m_domain *ap2m = d->arch.altp2m_p2m[idx];
+
+                    WRITE_SYSREG64(ap2m->vttbr, VTTBR_EL2);
+                    isb();
+                }
+            }
+
+        rc = 0;
+    }
+
+    altp2m_unlock(d);
+
+    domain_unpause_except_self(d);
+
+    return rc;
+}
+
 static void altp2m_vcpu_reset(struct vcpu *v)
 {
     struct altp2mvcpu *av = &altp2m_vcpu(v);

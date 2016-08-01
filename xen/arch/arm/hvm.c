@@ -132,7 +132,7 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
         break;
 
     case HVMOP_altp2m_switch_p2m:
-        rc = -EOPNOTSUPP;
+        rc = altp2m_switch_domain_altp2m_by_id(d, a.u.view.view);
         break;
 
     case HVMOP_altp2m_set_mem_access:
