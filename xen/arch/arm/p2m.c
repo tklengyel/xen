@@ -1162,9 +1162,8 @@ void guest_physmap_remove_page(struct domain *d,
     p2m_remove_mapping(d, gfn, (1 << page_order), mfn);
 }
 
-static int p2m_alloc_table(struct domain *d)
+static int p2m_alloc_table(struct p2m_domain *p2m)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *page;
     unsigned int i;
 
@@ -1322,7 +1321,7 @@ int p2m_init_one(struct domain *d, struct p2m_domain *p2m)
     p2m->clean_pte = iommu_enabled &&
         !iommu_has_feature(d, IOMMU_FEAT_COHERENT_WALK);
 
-    return p2m_alloc_table(d);
+    return p2m_alloc_table(p2m);
 }
 
 static void p2m_teardown_hostp2m(struct domain *d)
