@@ -21,6 +21,7 @@
 #include <xen/sched.h>
 #include <xen/vm_event.h>
 #include <public/vm_event.h>
+#include <asm/altp2m.h>
 #include <asm/event.h>
 #include <asm/guest_walk.h>
 
@@ -108,9 +109,22 @@ p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag,
     xenmem_access_t xma;
     p2m_type_t t;
     struct page_info *page = NULL;
-    struct p2m_domain *p2m = p2m_get_hostp2m(v->domain);
+    struct domain *d = v->domain;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
-    rc = gva_to_ipa(gva, &ipa, flag);
+    /*
+     * If altp2m is active, we need to translate the gva upon the hostp2m's
+     * vttbr, as it contains all valid mappings while the currently active
+     * altp2m view might not have the required gva mapping yet. Although, the
+     * function gva_to_ipa performs a stage 1 table walk, it will access page
+     * tables residing in memory. Accesses to this memory are controlled by the
+     * underlying 2nd stage translation table and hence require the original
+     * mappings of the hostp2m.
+     */
+    if ( unlikely(altp2m_active(d)) )
+        rc = p2m_gva_to_ipa(p2m, gva, &ipa, flag);
+    else
+        rc = gva_to_ipa(gva, &ipa, flag);
 
     /*
      * In case mem_access is active, hardware-based gva_to_ipa translation
@@ -229,13 +243,15 @@ bool p2m_mem_access_check(paddr_t gpa, vaddr_t gla, const struct npfec npfec)
     xenmem_access_t xma;
     vm_event_request_t *req;
     struct vcpu *v = current;
-    struct p2m_domain *p2m = p2m_get_hostp2m(v->domain);
+    struct p2m_domain *p2m = p2m_get_active_p2m(v);
 
     /* Mem_access is not in use. */
     if ( !p2m->mem_access_enabled )
         return true;
 
-    rc = p2m_get_mem_access(v->domain, gaddr_to_gfn(gpa), &xma);
+    p2m_read_lock(p2m);
+    rc = __p2m_get_mem_access(p2m, _gfn(paddr_to_pfn(gpa)), &xma);
+    p2m_read_unlock(p2m);
     if ( rc )
         return true;
 
