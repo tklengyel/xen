@@ -77,6 +77,52 @@ int altp2m_switch_domain_altp2m_by_id(struct domain *d, unsigned int idx)
     return rc;
 }
 
+int altp2m_set_mem_access(struct domain *d,
+                          struct p2m_domain *hp2m,
+                          struct p2m_domain *ap2m,
+                          p2m_access_t a,
+                          gfn_t gfn)
+{
+    p2m_type_t p2mt;
+    p2m_access_t old_a;
+    mfn_t mfn, mfn_sp;
+    gfn_t gfn_sp;
+    unsigned int order;
+    int rc;
+
+    /* Check if entry is part of the altp2m view. */
+    mfn = p2m_get_entry(ap2m, gfn, &p2mt, NULL, &order);
+
+    /* Check host p2m if no valid entry in ap2m. */
+    if ( mfn_eq(mfn, INVALID_MFN) )
+    {
+        /* Check if entry is part of the host p2m view. */
+        mfn = p2m_get_entry(hp2m, gfn, &p2mt, &old_a, &order);
+        if ( mfn_eq(mfn, INVALID_MFN) )
+            return -ESRCH;
+
+        /* If this is a superpage, copy that first. */
+        if ( order != THIRD_ORDER )
+        {
+            /* Align the gfn and mfn to the given pager order. */
+            gfn_sp = _gfn(gfn_x(gfn) & ~((1UL << order) - 1));
+            mfn_sp = _mfn(mfn_x(mfn) & ~((1UL << order) - 1));
+
+            rc = p2m_set_entry(ap2m, gfn_sp, (1UL << order), mfn_sp, p2mt, old_a);
+            if ( rc )
+                return rc;
+        }
+    }
+
+    /* Align the gfn and mfn to the given pager order. */
+    gfn = _gfn(gfn_x(gfn) & ~((1UL << THIRD_ORDER) - 1));
+    mfn = _mfn(mfn_x(mfn) & ~((1UL << THIRD_ORDER) - 1));
+
+    rc = p2m_set_entry(ap2m, gfn, (1UL << THIRD_ORDER), mfn, p2mt, a);
+
+    return rc;
+}
+
 static void altp2m_vcpu_reset(struct vcpu *v)
 {
     v->arch.ap2m_idx = INVALID_ALTP2M;

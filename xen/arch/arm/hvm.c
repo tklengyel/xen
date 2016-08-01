@@ -139,7 +139,12 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
         break;
 
     case HVMOP_altp2m_set_mem_access:
-        rc = -EOPNOTSUPP;
+        if ( a.u.set_mem_access.pad )
+            rc = -EINVAL;
+        else
+            rc = p2m_set_mem_access(d, _gfn(a.u.set_mem_access.gfn), 1, 0, 0,
+                                    a.u.set_mem_access.hvmmem_access,
+                                    a.u.set_mem_access.view);
         break;
 
     case HVMOP_altp2m_change_gfn:
