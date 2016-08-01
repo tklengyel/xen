@@ -1213,33 +1213,73 @@ static void p2m_free_vmid(struct domain *d)
     spin_unlock(&vmid_alloc_lock);
 }
 
-void p2m_teardown(struct domain *d)
+/* Reset this p2m table to be empty. */
+void p2m_flush_table(struct p2m_domain *p2m)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *pg;
+    unsigned int i, j;
+    lpae_t *table;
 
+    if ( p2m->root )
+    {
+        /* Clear all concatenated root level pages. */
+        for ( i = 0; i < P2M_ROOT_PAGES; i++ )
+        {
+            table = __map_domain_page(p2m->root + i);
+
+            for ( j = 0; j < LPAE_ENTRIES; j++ )
+            {
+                lpae_t *entry = table + j;
+
+                /*
+                 * Individual altp2m views can be flushed, whilst altp2m is
+                 * active. To avoid inconsistencies on CPUs that continue to
+                 * use the views to be flushed (e.g., see altp2m_reset), we
+                 * must remove every p2m entry atomically.
+                 */
+                p2m_remove_pte(entry, p2m->clean_pte);
+            }
+        }
+    }
+
+    /*
+     * XXX TODO!!!
+     *
+     * Flush TLBs before releasing remaining intermediate p2m page tables to
+     * prevent illegal access to stalled TLB entries.
+     */
+    p2m_tlb_flush_sync(p2m);
+
+    /* Free the rest of the trie pages back to the paging pool. */
+    while ( (pg = page_list_remove_head(&p2m->pages)) )
+        free_domheap_page(pg);
+
+    p2m->lowest_mapped_gfn = INVALID_GFN;
+    p2m->max_mapped_gfn = _gfn(0);
+}
+
+void p2m_teardown_one(struct p2m_domain *p2m)
+{
     /* p2m not actually initialized */
     if ( !p2m->domain )
         return;
 
-    while ( (pg = page_list_remove_head(&p2m->pages)) )
-        free_domheap_page(pg);
+    p2m_flush_table(p2m);
 
     if ( p2m->root )
         free_domheap_pages(p2m->root, P2M_ROOT_ORDER);
 
     p2m->root = NULL;
 
-    p2m_free_vmid(d);
+    p2m_free_vmid(p2m->domain);
 
     radix_tree_destroy(&p2m->mem_access_settings, NULL);
 
     p2m->domain = NULL;
 }
 
-int p2m_init(struct domain *d)
+int p2m_init_one(struct domain *d, struct p2m_domain *p2m)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc = 0;
     unsigned int cpu;
 
@@ -1288,6 +1328,32 @@ int p2m_init(struct domain *d)
     p2m->domain = d;
 
     return rc;
+}
+
+static void p2m_teardown_hostp2m(struct domain *d)
+{
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+
+    p2m_teardown_one(p2m);
+}
+
+void p2m_teardown(struct domain *d)
+{
+    p2m_teardown_hostp2m(d);
+}
+
+static int p2m_init_hostp2m(struct domain *d)
+{
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+
+    p2m->p2m_class = p2m_host;
+
+    return p2m_init_one(d, p2m);
+}
+
+int p2m_init(struct domain *d)
+{
+    return p2m_init_hostp2m(d);
 }
 
 /*
