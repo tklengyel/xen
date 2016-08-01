@@ -24,10 +24,9 @@
 #include <asm/event.h>
 #include <asm/guest_walk.h>
 
-static int __p2m_get_mem_access(struct domain *d, gfn_t gfn,
+static int __p2m_get_mem_access(struct p2m_domain *p2m, gfn_t gfn,
                                 xenmem_access_t *access)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     void *i;
     unsigned int index;
 
@@ -150,7 +149,7 @@ p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag,
      * We do this first as this is faster in the default case when no
      * permission is set on the page.
      */
-    rc = __p2m_get_mem_access(v->domain, gfn, &xma);
+    rc = __p2m_get_mem_access(p2m, gfn, &xma);
     if ( rc < 0 )
         goto err;
 
@@ -447,7 +446,7 @@ int p2m_get_mem_access(struct domain *d, gfn_t gfn,
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
     p2m_read_lock(p2m);
-    ret = __p2m_get_mem_access(d, gfn, access);
+    ret = __p2m_get_mem_access(p2m, gfn, access);
     p2m_read_unlock(p2m);
 
     return ret;
