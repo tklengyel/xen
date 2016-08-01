@@ -305,6 +305,90 @@ out:
     return rc;
 }
 
+int altp2m_change_gfn(struct domain *d,
+                      unsigned int idx,
+                      gfn_t old_gfn,
+                      gfn_t new_gfn)
+{
+    struct p2m_domain *hp2m, *ap2m;
+    mfn_t mfn;
+    p2m_access_t p2ma;
+    p2m_type_t p2mt;
+    unsigned int page_order;
+    int rc = -EINVAL;
+
+    hp2m = p2m_get_hostp2m(d);
+
+    if ( idx >= MAX_ALTP2M || d->arch.altp2m_p2m[idx] == NULL )
+        return rc;
+
+    ap2m = d->arch.altp2m_p2m[idx];
+
+    p2m_read_lock(hp2m);
+    p2m_write_lock(ap2m);
+
+    mfn = p2m_get_entry(ap2m, old_gfn, &p2mt, NULL, NULL);
+
+    /* Check whether the page needs to be reset. */
+    if ( gfn_eq(new_gfn, INVALID_GFN) )
+    {
+        /* If mfn is mapped by old_gfn, remove old_gfn from the altp2m table. */
+        if ( !mfn_eq(mfn, INVALID_MFN) )
+            rc = p2m_set_entry(ap2m, old_gfn, (1UL << THIRD_ORDER), INVALID_MFN,
+                               p2m_invalid, p2m_access_rwx);
+
+        goto out;
+    }
+
+    /* Check hostp2m if no valid entry in altp2m present. */
+    if ( mfn_eq(mfn, INVALID_MFN) )
+    {
+        mfn = p2m_get_entry(hp2m, old_gfn, &p2mt, &p2ma, &page_order);
+
+        if ( mfn_eq(mfn, INVALID_MFN) ||
+             /* Allow changing gfn's in p2m_ram_(rw|ro) memory only. */
+             ((p2mt != p2m_ram_rw) && (p2mt != p2m_ram_ro)) )
+            goto out;
+
+        /* If this is a superpage, copy that first. */
+        if ( page_order != THIRD_ORDER )
+        {
+            /* Align the old_gfn and mfn to the given pager order. */
+            gfn_t old_gfn_aligned = _gfn(gfn_x(old_gfn) & ~((1UL << page_order) - 1));
+            mfn = _mfn(mfn_x(mfn) & ~((1UL << page_order) - 1));
+
+            if ( p2m_set_entry(ap2m, old_gfn_aligned, (1UL << page_order), mfn, p2mt, p2ma) )
+                goto out;
+        }
+    }
+
+    mfn = p2m_get_entry(ap2m, new_gfn, &p2mt, &p2ma, NULL);
+
+    /* If new_gfn is not part of altp2m, get the mapping information from hp2m */
+    if ( mfn_eq(mfn, INVALID_MFN) )
+        mfn = p2m_get_entry(hp2m, new_gfn, &p2mt, &p2ma, NULL);
+
+    if ( mfn_eq(mfn, INVALID_MFN) ||
+         /* Allow changing gfn's in p2m_ram_(rw|ro) memory only. */
+         ((p2mt != p2m_ram_rw) && (p2mt != p2m_ram_ro)) )
+        goto out;
+
+    if ( p2m_set_entry(ap2m, old_gfn, (1UL << THIRD_ORDER), mfn, p2mt, p2ma) )
+        goto out;
+
+    rc = 0;
+
+out:
+    /* Avoid stalled entries. */
+    ap2m->need_flush = true;
+
+    p2m_write_unlock(ap2m);
+    p2m_read_unlock(hp2m);
+
+    return rc;
+}
+
+
 static void altp2m_vcpu_reset(struct vcpu *v)
 {
     v->arch.ap2m_idx = INVALID_ALTP2M;

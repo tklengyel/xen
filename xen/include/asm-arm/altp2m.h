@@ -93,4 +93,10 @@ int altp2m_propagate_change(struct domain *d,
                             p2m_type_t p2mt,
                             p2m_access_t p2ma);
 
+/* Change a gfn->mfn mapping */
+int altp2m_change_gfn(struct domain *d,
+                      unsigned int idx,
+                      gfn_t old_gfn,
+                      gfn_t new_gfn);
+
 #endif /* __ASM_ARM_ALTP2M_H */
