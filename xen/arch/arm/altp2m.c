@@ -180,6 +180,45 @@ void altp2m_flush_complete(struct domain *d)
     altp2m_unlock(d);
 }
 
+int altp2m_destroy_by_id(struct domain *d, unsigned int idx)
+{
+    struct p2m_domain *p2m;
+    int rc = -EBUSY;
+
+    /*
+     * The altp2m[0] is considered as the hostp2m and is used as a safe harbor
+     * to which you can switch as long as altp2m is active. After deactivating
+     * altp2m, the system switches back to the original hostp2m view. That is,
+     * altp2m[0] should only be destroyed/flushed/freed, when altp2m is
+     * deactivated.
+     */
+    if ( !idx || idx >= MAX_ALTP2M )
+        return rc;
+
+    domain_pause_except_self(d);
+
+    altp2m_lock(d);
+
+    if ( d->arch.altp2m_p2m[idx] != NULL )
+    {
+        p2m = d->arch.altp2m_p2m[idx];
+
+        if ( !_atomic_read(p2m->active_vcpus) )
+        {
+            p2m_teardown_one(p2m);
+            xfree(p2m);
+            d->arch.altp2m_p2m[idx] = NULL;
+            rc = 0;
+        }
+    }
+
+    altp2m_unlock(d);
+
+    domain_unpause_except_self(d);
+
+    return rc;
+}
+
 void altp2m_teardown(struct domain *d)
 {
     unsigned int i;
