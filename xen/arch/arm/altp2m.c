@@ -80,6 +80,59 @@ int altp2m_switch_domain_altp2m_by_id(struct domain *d, unsigned int idx)
     return rc;
 }
 
+int altp2m_set_mem_access(struct domain *d,
+                          struct p2m_domain *hp2m,
+                          struct p2m_domain *ap2m,
+                          p2m_access_t a,
+                          gfn_t gfn)
+{
+    p2m_type_t p2mt;
+    p2m_access_t old_a;
+    mfn_t mfn;
+    unsigned int page_order;
+    int rc;
+
+    altp2m_lock(d);
+    p2m_read_lock(hp2m);
+
+    /* Check if entry is part of the altp2m view. */
+    mfn = p2m_lookup_attr(ap2m, gfn, &p2mt, NULL, &page_order);
+
+    /* Check host p2m if no valid entry in ap2m. */
+    if ( mfn_eq(mfn, INVALID_MFN) )
+    {
+        /* Check if entry is part of the host p2m view. */
+        mfn = p2m_lookup_attr(hp2m, gfn, &p2mt, &old_a, &page_order);
+        if ( mfn_eq(mfn, INVALID_MFN) ||
+             ((p2mt != p2m_ram_rw) && (p2mt != p2m_ram_ro)) )
+        {
+            rc = -ESRCH;
+            goto out;
+        }
+
+        /* If this is a superpage, copy that first. */
+        if ( page_order != THIRD_ORDER )
+        {
+            rc = modify_altp2m_entry(ap2m, gfn, mfn, p2mt, old_a, page_order);
+            if ( rc < 0 )
+            {
+                rc = -ESRCH;
+                goto out;
+            }
+        }
+    }
+
+    /* Set mem access attributes - currently supporting only one (4K) page. */
+    page_order = THIRD_ORDER;
+    rc = modify_altp2m_entry(ap2m, gfn, mfn, p2mt, a, page_order);
+
+out:
+    p2m_read_unlock(hp2m);
+    altp2m_unlock(d);
+
+    return rc;
+}
+
 static void altp2m_vcpu_reset(struct vcpu *v)
 {
     struct altp2mvcpu *av = &altp2m_vcpu(v);

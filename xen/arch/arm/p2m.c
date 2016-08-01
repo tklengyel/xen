@@ -1897,7 +1897,7 @@ long p2m_set_mem_access(struct domain *d, gfn_t gfn, uint32_t nr,
                         uint32_t start, uint32_t mask, xenmem_access_t access,
                         unsigned int altp2m_idx)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+    struct p2m_domain *hp2m = p2m_get_hostp2m(d), *ap2m = NULL;
     p2m_access_t a;
     unsigned int order;
     long rc = 0;
@@ -1917,13 +1917,26 @@ long p2m_set_mem_access(struct domain *d, gfn_t gfn, uint32_t nr,
 #undef ACCESS
     };
 
+    /* altp2m view 0 is treated as the hostp2m */
+    if ( altp2m_idx )
+    {
+        if ( altp2m_idx >= MAX_ALTP2M ||
+             d->arch.altp2m_p2m[altp2m_idx] == NULL )
+            return -EINVAL;
+
+        ap2m = d->arch.altp2m_p2m[altp2m_idx];
+    }
+
     switch ( access )
     {
     case 0 ... ARRAY_SIZE(memaccess) - 1:
         a = memaccess[access];
         break;
     case XENMEM_access_default:
-        a = p2m->default_access;
+        if ( ap2m )
+            a = ap2m->default_access;
+        else
+            a = hp2m->default_access;
         break;
     default:
         return -EINVAL;
@@ -1933,39 +1946,66 @@ long p2m_set_mem_access(struct domain *d, gfn_t gfn, uint32_t nr,
      * Flip mem_access_enabled to true when a permission is set, as to prevent
      * allocating or inserting super-pages.
      */
-    p2m->mem_access_enabled = true;
+    if ( ap2m )
+        ap2m->mem_access_enabled = true;
+    else
+        hp2m->mem_access_enabled = true;
 
     /* If request to set default access. */
     if ( gfn_eq(gfn, INVALID_GFN) )
     {
-        p2m->default_access = a;
+        if ( ap2m )
+            ap2m->default_access = a;
+        else
+            hp2m->default_access = a;
+
         return 0;
     }
 
-    p2m_write_lock(p2m);
-
     for ( gfn = gfn_add(gfn, start); nr > start; gfn = gfn_add(gfn, 1UL << order) )
     {
-        p2m_type_t t;
-        mfn_t mfn = p2m_get_entry(p2m, gfn, &t, NULL, &order);
-
-        /* Skip hole */
-        if ( mfn_eq(mfn, INVALID_MFN) )
+        if ( ap2m )
         {
+            order = THIRD_ORDER;
+
             /*
-             * the order corresponds to the order of the mapping in the
-             * page table. so we need to align the gfn before
-             * incrementing.
+             * ARM altp2m currently supports only setting of memory access rights
+             * of only one (4K) page at a time.
              */
-            gfn = _gfn(gfn_x(gfn) & ~((1UL << order) - 1));
-            continue;
+            rc = altp2m_set_mem_access(d, hp2m, ap2m, a, gfn);
+            if ( rc && rc != -ESRCH )
+                break;
         }
         else
         {
-            order = 0;
-            rc = __p2m_set_entry(p2m, gfn, 0, mfn, t, a);
-            if ( rc )
-                break;
+            p2m_type_t t;
+            mfn_t mfn;
+
+            p2m_write_lock(hp2m);
+
+            mfn = p2m_get_entry(hp2m, gfn, &t, NULL, &order);
+
+            /* Skip hole */
+            if ( mfn_eq(mfn, INVALID_MFN) )
+            {
+                /*
+                 * the order corresponds to the order of the mapping in the
+                 * page table. so we need to align the gfn before
+                 * incrementing.
+                 */
+                gfn = _gfn(gfn_x(gfn) & ~((1UL << order) - 1));
+                continue;
+            }
+            else
+            {
+                order = 0;
+
+                rc = __p2m_set_entry(hp2m, gfn, 0, mfn, t, a);
+                if ( rc )
+                    break;
+            }
+
+            p2m_write_unlock(hp2m);
         }
 
         start += (1UL << order);
@@ -1976,8 +2016,6 @@ long p2m_set_mem_access(struct domain *d, gfn_t gfn, uint32_t nr,
             break;
         }
     }
-
-    p2m_write_unlock(p2m);
 
     if ( rc < 0 )
         return rc;
