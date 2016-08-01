@@ -1033,6 +1033,10 @@ static int __p2m_set_entry(struct p2m_domain *p2m,
 
     rc = 0;
 
+    /* Update all affected altp2m views if necessary. */
+    if ( p2m_is_hostp2m(p2m) )
+        rc = altp2m_propagate_change(p2m->domain, sgfn, page_order, smfn, t, a);
+
 out:
     unmap_domain_page(table);
 
