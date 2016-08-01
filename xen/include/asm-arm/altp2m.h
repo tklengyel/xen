@@ -49,6 +49,10 @@ void altp2m_vcpu_destroy(struct vcpu *v);
 /* Get current alternate p2m table. */
 struct p2m_domain *altp2m_get_altp2m(struct vcpu *v);
 
+/* Switch alternate p2m for entire domain */
+int altp2m_switch_domain_altp2m_by_id(struct domain *d,
+                                      unsigned int idx);
+
 /* Make a specific alternate p2m valid. */
 int altp2m_init_by_id(struct domain *d,
                       unsigned int idx);

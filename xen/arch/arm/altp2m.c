@@ -32,6 +32,51 @@ struct p2m_domain *altp2m_get_altp2m(struct vcpu *v)
     return v->domain->arch.altp2m_p2m[idx];
 }
 
+int altp2m_switch_domain_altp2m_by_id(struct domain *d, unsigned int idx)
+{
+    struct vcpu *v;
+    int rc = -EINVAL;
+
+    if ( idx >= MAX_ALTP2M )
+        return rc;
+
+    domain_pause_except_self(d);
+
+    altp2m_lock(d);
+
+    if ( d->arch.altp2m_p2m[idx] != NULL )
+    {
+        for_each_vcpu( d, v )
+        {
+            if ( idx == v->arch.ap2m_idx )
+                continue;
+
+            atomic_dec(&altp2m_get_altp2m(v)->active_vcpus);
+            v->arch.ap2m_idx = idx;
+            atomic_inc(&altp2m_get_altp2m(v)->active_vcpus);
+
+            /*
+             * ARM supports an external-only interface to the altp2m subsystem,
+             * i.e, the guest does not have access to altp2m. Thus, we don't
+             * have to consider that the current vcpu will not switch its
+             * context in the function "p2m_restore_state".
+             *
+             * XXX: If the current guest access restriction to the altp2m
+             * subsystem should change in the future, we have to update
+             * VTTBR_EL2 directly.
+             */
+        }
+
+        rc = 0;
+    }
+
+    altp2m_unlock(d);
+
+    domain_unpause_except_self(d);
+
+    return rc;
+}
+
 static void altp2m_vcpu_reset(struct vcpu *v)
 {
     v->arch.ap2m_idx = INVALID_ALTP2M;
