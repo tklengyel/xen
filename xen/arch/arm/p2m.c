@@ -120,8 +120,8 @@ void p2m_save_state(struct vcpu *p)
 
 void p2m_restore_state(struct vcpu *n)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(n->domain);
     uint8_t *last_vcpu_ran;
+    struct p2m_domain *p2m = p2m_get_active_p2m(n);
 
     if ( is_idle_vcpu(n) )
         return;
