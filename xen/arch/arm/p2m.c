@@ -171,7 +171,7 @@ void p2m_save_state(struct vcpu *p)
 void p2m_restore_state(struct vcpu *n)
 {
     register_t hcr;
-    struct p2m_domain *p2m = p2m_get_hostp2m(n->domain);
+    struct p2m_domain *p2m = p2m_get_active_p2m(n);
 
     if ( is_idle_vcpu(n) )
         return;
