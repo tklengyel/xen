@@ -1221,27 +1221,51 @@ static void p2m_free_vmid(struct domain *d)
     spin_unlock(&vmid_alloc_lock);
 }
 
-void p2m_teardown(struct domain *d)
+/* Reset this p2m table to be empty. */
+void p2m_flush_table(struct p2m_domain *p2m)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
-    struct page_info *pg;
+    struct page_info *page, *pg;
+    unsigned int i;
 
+    if ( p2m->root )
+    {
+        page = p2m->root;
+
+        /* Clear all concatenated root level pages. */
+        for ( i = 0; i < P2M_ROOT_PAGES; i++ )
+            clear_and_clean_page(page + i);
+    }
+
+    /*
+     * Flush TLBs before releasing remaining intermediate p2m page tables to
+     * prevent illegal access to stalled TLB entries.
+     */
+    p2m_flush_tlb(p2m);
+
+    /* Free the rest of the trie pages back to the paging pool. */
     while ( (pg = page_list_remove_head(&p2m->pages)) )
         free_domheap_page(pg);
+
+    p2m->lowest_mapped_gfn = INVALID_GFN;
+    p2m->max_mapped_gfn = _gfn(0);
+}
+
+void p2m_teardown_one(struct p2m_domain *p2m)
+{
+    p2m_flush_table(p2m);
 
     if ( p2m->root )
         free_domheap_pages(p2m->root, P2M_ROOT_ORDER);
 
     p2m->root = NULL;
 
-    p2m_free_vmid(d);
+    p2m_free_vmid(p2m->domain);
 
     radix_tree_destroy(&p2m->mem_access_settings, NULL);
 }
 
-int p2m_init(struct domain *d)
+int p2m_init_one(struct domain *d, struct p2m_domain *p2m)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc = 0;
 
     rwlock_init(&p2m->lock);
@@ -1269,9 +1293,33 @@ int p2m_init(struct domain *d)
     p2m->clean_pte = iommu_enabled &&
         !iommu_has_feature(d, IOMMU_FEAT_COHERENT_WALK);
 
-    rc = p2m_alloc_table(d);
+    return p2m_alloc_table(d);
+}
 
-    return rc;
+static void p2m_teardown_hostp2m(struct domain *d)
+{
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+
+    p2m_teardown_one(p2m);
+}
+
+void p2m_teardown(struct domain *d)
+{
+    p2m_teardown_hostp2m(d);
+}
+
+static int p2m_init_hostp2m(struct domain *d)
+{
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+
+    p2m->p2m_class = p2m_host;
+
+    return p2m_init_one(d, p2m);
+}
+
+int p2m_init(struct domain *d)
+{
+    return p2m_init_hostp2m(d);
 }
 
 /*

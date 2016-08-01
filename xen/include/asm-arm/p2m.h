@@ -226,6 +226,15 @@ void guest_physmap_remove_page(struct domain *d,
 
 mfn_t gfn_to_mfn(struct domain *d, gfn_t gfn);
 
+/* Flushes the page table held by the p2m. */
+void p2m_flush_table(struct p2m_domain *p2m);
+
+/* Initialize the p2m structure. */
+int p2m_init_one(struct domain *d, struct p2m_domain *p2m);
+
+/* Release resources held by the p2m structure. */
+void p2m_teardown_one(struct p2m_domain *p2m);
+
 /*
  * P2M rwlock helpers.
  */
