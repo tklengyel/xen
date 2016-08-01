@@ -123,6 +123,90 @@ int altp2m_set_mem_access(struct domain *d,
     return rc;
 }
 
+static inline void altp2m_reset(struct p2m_domain *p2m)
+{
+    p2m_write_lock(p2m);
+    p2m_flush_table(p2m);
+    p2m_write_unlock(p2m);
+}
+
+int altp2m_propagate_change(struct domain *d,
+                            gfn_t sgfn,
+                            unsigned int page_order,
+                            mfn_t smfn,
+                            p2m_type_t p2mt,
+                            p2m_access_t p2ma)
+{
+    int rc = 0;
+    unsigned int i;
+    unsigned int reset_count = 0;
+    unsigned int last_reset_idx = ~0;
+    struct p2m_domain *p2m;
+    mfn_t m;
+
+    altp2m_lock(d);
+
+    if ( !altp2m_active(d) )
+        goto out;
+
+    for ( i = 0; i < MAX_ALTP2M; i++ )
+    {
+        p2m = d->arch.altp2m_p2m[i];
+
+        if ( p2m == NULL )
+            continue;
+
+        /*
+         * Get the altp2m mapping. If the smfn has not been dropped, a valid
+         * altp2m mapping needs to be changed/modified accordingly.
+         */
+        p2m_read_lock(p2m);
+        m = p2m_get_entry(p2m, sgfn, NULL, NULL, NULL);
+        p2m_read_unlock(p2m);
+
+        /* Check for a dropped page that may impact this altp2m. */
+        if ( mfn_eq(smfn, INVALID_MFN) &&
+             (gfn_x(sgfn) >= gfn_x(p2m->lowest_mapped_gfn)) &&
+             (gfn_x(sgfn) <= gfn_x(p2m->max_mapped_gfn)) )
+        {
+            if ( !reset_count++ )
+            {
+                altp2m_reset(p2m);
+                last_reset_idx = i;
+            }
+            else
+            {
+                /* At least 2 altp2m's impacted, so reset everything. */
+                for ( i = 0; i < MAX_ALTP2M; i++ )
+                {
+                    p2m = d->arch.altp2m_p2m[i];
+
+                    if ( i == last_reset_idx || p2m == NULL )
+                        continue;
+
+                    altp2m_reset(p2m);
+                }
+                goto out;
+            }
+        }
+        else if ( !mfn_eq(m, INVALID_MFN) )
+        {
+            /* Align the gfn and mfn to the given pager order. */
+            sgfn = _gfn(gfn_x(sgfn) & ~((1UL << page_order) - 1));
+            smfn = _mfn(mfn_x(smfn) & ~((1UL << page_order) - 1));
+
+            p2m_write_lock(p2m);
+            rc = p2m_set_entry(p2m, sgfn, (1UL << page_order), smfn, p2mt, p2ma);
+            p2m_write_unlock(p2m);
+        }
+    }
+
+out:
+    altp2m_unlock(d);
+
+    return rc;
+}
+
 static void altp2m_vcpu_reset(struct vcpu *v)
 {
     v->arch.ap2m_idx = INVALID_ALTP2M;
