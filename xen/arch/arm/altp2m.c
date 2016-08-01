@@ -34,6 +34,37 @@ int altp2m_init(struct domain *d)
     return 0;
 }
 
+void altp2m_flush(struct domain *d)
+{
+    unsigned int i;
+    struct p2m_domain *p2m;
+
+    /*
+     * If altp2m is active, we are not allowed to flush altp2m[0]. This special
+     * view is considered as the hostp2m as long as altp2m is active.
+     */
+    ASSERT(!altp2m_active(d));
+
+    altp2m_lock(d);
+
+    for ( i = 0; i < MAX_ALTP2M; i++ )
+    {
+        if ( d->arch.altp2m_p2m[i] == NULL )
+            continue;
+
+        p2m = d->arch.altp2m_p2m[i];
+
+        p2m_write_lock(p2m);
+        p2m_teardown_one(p2m);
+        p2m_write_unlock(p2m);
+
+        xfree(p2m);
+        d->arch.altp2m_p2m[i] = NULL;
+    }
+
+    altp2m_unlock(d);
+}
+
 void altp2m_teardown(struct domain *d)
 {
     unsigned int i;
