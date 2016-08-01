@@ -1062,13 +1062,12 @@ static int p2m_set_entry(struct p2m_domain *p2m,
     return rc;
 }
 
-static inline int p2m_insert_mapping(struct domain *d,
+static inline int p2m_insert_mapping(struct p2m_domain *p2m,
                                      gfn_t start_gfn,
                                      unsigned long nr,
                                      mfn_t mfn,
                                      p2m_type_t t)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc;
 
     p2m_write_lock(p2m);
@@ -1082,12 +1081,11 @@ static inline int p2m_insert_mapping(struct domain *d,
     return rc;
 }
 
-static inline int p2m_remove_mapping(struct domain *d,
+static inline int p2m_remove_mapping(struct p2m_domain *p2m,
                                      gfn_t start_gfn,
                                      unsigned long nr,
                                      mfn_t mfn)
 {
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc;
 
     p2m_write_lock(p2m);
@@ -1103,7 +1101,7 @@ int map_regions_rw_cache(struct domain *d,
                          unsigned long nr,
                          mfn_t mfn)
 {
-    return p2m_insert_mapping(d, gfn, nr, mfn, p2m_mmio_direct_c);
+    return p2m_insert_mapping(p2m_get_hostp2m(d), gfn, nr, mfn, p2m_mmio_direct_c);
 }
 
 int unmap_regions_rw_cache(struct domain *d,
@@ -1111,7 +1109,7 @@ int unmap_regions_rw_cache(struct domain *d,
                            unsigned long nr,
                            mfn_t mfn)
 {
-    return p2m_remove_mapping(d, gfn, nr, mfn);
+    return p2m_remove_mapping(p2m_get_hostp2m(d), gfn, nr, mfn);
 }
 
 int map_mmio_regions(struct domain *d,
@@ -1119,7 +1117,7 @@ int map_mmio_regions(struct domain *d,
                      unsigned long nr,
                      mfn_t mfn)
 {
-    return p2m_insert_mapping(d, start_gfn, nr, mfn, p2m_mmio_direct_nc);
+    return p2m_insert_mapping(p2m_get_hostp2m(d), start_gfn, nr, mfn, p2m_mmio_direct_nc);
 }
 
 int unmap_mmio_regions(struct domain *d,
@@ -1127,7 +1125,7 @@ int unmap_mmio_regions(struct domain *d,
                        unsigned long nr,
                        mfn_t mfn)
 {
-    return p2m_remove_mapping(d, start_gfn, nr, mfn);
+    return p2m_remove_mapping(p2m_get_hostp2m(d), start_gfn, nr, mfn);
 }
 
 int map_dev_mmio_region(struct domain *d,
@@ -1157,14 +1155,14 @@ int guest_physmap_add_entry(struct domain *d,
                             unsigned long page_order,
                             p2m_type_t t)
 {
-    return p2m_insert_mapping(d, gfn, (1 << page_order), mfn, t);
+    return p2m_insert_mapping(p2m_get_hostp2m(d), gfn, (1 << page_order), mfn, t);
 }
 
 void guest_physmap_remove_page(struct domain *d,
                                gfn_t gfn,
                                mfn_t mfn, unsigned int page_order)
 {
-    p2m_remove_mapping(d, gfn, (1 << page_order), mfn);
+    p2m_remove_mapping(p2m_get_hostp2m(d), gfn, (1 << page_order), mfn);
 }
 
 static int p2m_alloc_table(struct p2m_domain *p2m)
