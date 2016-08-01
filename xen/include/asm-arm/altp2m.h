@@ -63,4 +63,8 @@ int altp2m_init_next_available(struct domain *d,
 /* Flush all the alternate p2m's for a domain. */
 void altp2m_flush(struct domain *d);
 
+/* Make a specific alternate p2m invalid */
+int altp2m_destroy_by_id(struct domain *d,
+                         unsigned int idx);
+
 #endif /* __ASM_ARM_ALTP2M_H */
