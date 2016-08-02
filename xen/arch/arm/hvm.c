@@ -124,6 +124,48 @@ out:
     return rc;
 }
 
+static int hvm_allow_set_param(struct domain *d, const struct xen_hvm_param *a)
+{
+    uint64_t value = d->arch.hvm_domain.params[a->index];
+    int rc;
+
+    rc = xsm_hvm_param(XSM_TARGET, d, HVMOP_set_param);
+    if ( rc )
+        return rc;
+
+    switch ( a->index )
+    {
+    /* The following parameters should only be changed once. */
+    case HVM_PARAM_ALTP2M:
+        if ( value != 0 && a->value != value )
+            rc = -EEXIST;
+        break;
+    default:
+        break;
+    }
+
+    return rc;
+}
+
+static int hvm_allow_get_param(struct domain *d, const struct xen_hvm_param *a)
+{
+    int rc;
+
+    rc = xsm_hvm_param(XSM_TARGET, d, HVMOP_get_param);
+    if ( rc )
+        return rc;
+
+    switch ( a->index )
+    {
+        /* This switch statement can be used to control/limit guest access to
+         * certain HVM params. */
+    default:
+        break;
+    }
+
+    return rc;
+}
+
 long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
 {
     long rc = 0;
@@ -146,21 +188,26 @@ long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
         if ( d == NULL )
             return -ESRCH;
 
-        rc = xsm_hvm_param(XSM_TARGET, d, op);
-        if ( rc )
-            goto param_fail;
+        switch ( op )
+        {
+        case HVMOP_set_param:
+            rc = hvm_allow_set_param(d, &a);
+            if ( rc )
+                break;
 
-        if ( op == HVMOP_set_param )
-        {
             d->arch.hvm_domain.params[a.index] = a.value;
-        }
-        else
-        {
+            break;
+
+        case HVMOP_get_param:
+            rc = hvm_allow_get_param(d, &a);
+            if ( rc )
+                break;
+
             a.value = d->arch.hvm_domain.params[a.index];
             rc = copy_to_guest(arg, &a, 1) ? -EFAULT : 0;
+            break;
         }
 
-    param_fail:
         rcu_unlock_domain(d);
         break;
     }
