@@ -83,8 +83,40 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
         break;
 
     case HVMOP_altp2m_set_domain_state:
-        rc = -EOPNOTSUPP;
+    {
+        struct vcpu *v;
+        bool_t ostate, nstate;
+
+        ostate = d->arch.altp2m_active;
+        nstate = !!a.u.domain_state.state;
+
+        /* If the alternate p2m state has changed, handle appropriately */
+        if ( (nstate != ostate) &&
+             (ostate || !(rc = altp2m_init_by_id(d, 0))) )
+        {
+            for_each_vcpu( d, v )
+            {
+                if ( !ostate )
+                {
+                    altp2m_vcpu_initialise(v);
+                    d->arch.altp2m_active = nstate;
+                }
+                else
+                {
+                    d->arch.altp2m_active = nstate;
+                    altp2m_vcpu_destroy(v);
+                }
+            }
+
+            /*
+             * The altp2m_active state has been deactivated. It is now safe to
+             * flush all altp2m views -- including altp2m[0].
+             */
+            if ( ostate )
+                altp2m_flush(d);
+        }
         break;
+    }
 
     case HVMOP_altp2m_vcpu_enable_notify:
         rc = -EOPNOTSUPP;
