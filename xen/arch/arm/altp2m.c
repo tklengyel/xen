@@ -20,6 +20,100 @@
 #include <asm/p2m.h>
 #include <asm/altp2m.h>
 
+struct p2m_domain *altp2m_get_altp2m(struct vcpu *v)
+{
+    unsigned int index = altp2m_vcpu(v).p2midx;
+
+    if ( index == INVALID_ALTP2M )
+        return NULL;
+
+    BUG_ON(index >= MAX_ALTP2M);
+
+    return v->domain->arch.altp2m_p2m[index];
+}
+
+static void altp2m_vcpu_reset(struct vcpu *v)
+{
+    struct altp2mvcpu *av = &altp2m_vcpu(v);
+
+    av->p2midx = INVALID_ALTP2M;
+}
+
+void altp2m_vcpu_initialise(struct vcpu *v)
+{
+    if ( v != current )
+        vcpu_pause(v);
+
+    altp2m_vcpu(v).p2midx = 0;
+    atomic_inc(&altp2m_get_altp2m(v)->active_vcpus);
+
+    if ( v != current )
+        vcpu_unpause(v);
+}
+
+void altp2m_vcpu_destroy(struct vcpu *v)
+{
+    struct p2m_domain *p2m;
+
+    if ( v != current )
+        vcpu_pause(v);
+
+    if ( (p2m = altp2m_get_altp2m(v)) )
+        atomic_dec(&p2m->active_vcpus);
+
+    altp2m_vcpu_reset(v);
+
+    if ( v != current )
+        vcpu_unpause(v);
+}
+
+static int altp2m_init_helper(struct domain *d, unsigned int idx)
+{
+    int rc;
+    struct p2m_domain *p2m = d->arch.altp2m_p2m[idx];
+
+    ASSERT(p2m == NULL);
+
+    /* Allocate a new, zeroed altp2m view. */
+    p2m = xzalloc(struct p2m_domain);
+    if ( p2m == NULL)
+        return -ENOMEM;
+
+    p2m->p2m_class = p2m_alternate;
+
+    /* Initialize the new altp2m view. */
+    rc = p2m_init_one(d, p2m);
+    if ( rc )
+        goto err;
+
+    d->arch.altp2m_p2m[idx] = p2m;
+
+    return rc;
+
+err:
+    xfree(p2m);
+    d->arch.altp2m_p2m[idx] = NULL;
+
+    return rc;
+}
+
+int altp2m_init_by_id(struct domain *d, unsigned int idx)
+{
+    int rc = -EINVAL;
+
+    if ( idx >= MAX_ALTP2M )
+        return rc;
+
+    altp2m_lock(d);
+
+    if ( d->arch.altp2m_p2m[idx] == NULL )
+        rc = altp2m_init_helper(d, idx);
+
+    altp2m_unlock(d);
+
+    return rc;
+}
+
 int altp2m_init(struct domain *d)
 {
     spin_lock_init(&d->arch.altp2m_lock);

@@ -22,6 +22,10 @@
 
 #include <xen/sched.h>
 
+#define INVALID_ALTP2M    0xffff
+
+#define altp2m_vcpu(v)    ((v)->arch.avcpu)
+
 #define altp2m_lock(d)    spin_lock(&(d)->arch.altp2m_lock)
 #define altp2m_unlock(d)  spin_unlock(&(d)->arch.altp2m_lock)
 
@@ -41,6 +45,16 @@ static inline uint16_t altp2m_vcpu_idx(const struct vcpu *v)
 
 int altp2m_init(struct domain *d);
 void altp2m_teardown(struct domain *d);
+
+void altp2m_vcpu_initialise(struct vcpu *v);
+void altp2m_vcpu_destroy(struct vcpu *v);
+
+/* Get current alternate p2m table. */
+struct p2m_domain *altp2m_get_altp2m(struct vcpu *v);
+
+/* Make a specific alternate p2m valid. */
+int altp2m_init_by_id(struct domain *d,
+                      unsigned int idx);
 
 /* Flush all the alternate p2m's for a domain. */
 void altp2m_flush(struct domain *d);

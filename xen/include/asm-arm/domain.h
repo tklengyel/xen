@@ -137,6 +137,10 @@ struct arch_domain
     struct p2m_domain *altp2m_p2m[MAX_ALTP2M];
 }  __cacheline_aligned;
 
+struct altp2mvcpu {
+    uint16_t p2midx; /* alternate p2m index */
+};
+
 struct arch_vcpu
 {
     struct {
@@ -266,6 +270,9 @@ struct arch_vcpu
     struct vtimer phys_timer;
     struct vtimer virt_timer;
     bool_t vtimer_initialized;
+
+    /* Alternate p2m context */
+    struct altp2mvcpu avcpu;
 }  __cacheline_aligned;
 
 void vcpu_show_execution_state(struct vcpu *);
