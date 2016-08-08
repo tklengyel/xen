@@ -1197,7 +1197,7 @@ static int flask_hvm_param_altp2mhvm(struct domain *d)
     return current_has_perm(d, SECCLASS_HVM, HVM__ALTP2MHVM);
 }
 
-static int flask_hvm_altp2mhvm_op(struct domain *d)
+static int flask_hvm_altp2mhvm_op(struct domain *d, int mode)
 {
     return current_has_perm(d, SECCLASS_HVM, HVM__ALTP2MHVM_OP);
 }

@@ -5120,7 +5120,7 @@ static int hvmop_set_param(
         rc = xsm_hvm_param_altp2mhvm(XSM_PRIV, d);
         if ( rc )
             break;
-        if ( a.value > 1 )
+        if ( a.value > XEN_ALTP2M_external_only )
             rc = -EINVAL;
         if ( a.value &&
              d->arch.hvm_domain.params[HVM_PARAM_NESTEDHVM] )
@@ -5316,18 +5316,19 @@ static int do_altp2m_op(
         goto out;
     }
 
-    if ( (rc = xsm_hvm_altp2mhvm_op(XSM_TARGET, d)) )
+    if ( !d->arch.hvm_domain.params[HVM_PARAM_ALTP2M] )
+    {
+        rc = -EINVAL;
+        goto out;
+    }
+
+    if ( (rc = xsm_hvm_altp2mhvm_op(XSM_OTHER, d,
+                d->arch.hvm_domain.params[HVM_PARAM_ALTP2M])) )
         goto out;
 
     switch ( a.cmd )
     {
     case HVMOP_altp2m_get_domain_state:
-        if ( !d->arch.hvm_domain.params[HVM_PARAM_ALTP2M] )
-        {
-            rc = -EINVAL;
-            break;
-        }
-
         a.u.domain_state.state = altp2m_active(d);
         rc = __copy_to_guest(arg, &a, 1) ? -EFAULT : 0;
         break;
@@ -5337,8 +5338,7 @@ static int do_altp2m_op(
         struct vcpu *v;
         bool_t ostate;
 
-        if ( !d->arch.hvm_domain.params[HVM_PARAM_ALTP2M] ||
-             nestedhvm_enabled(d) )
+        if ( nestedhvm_enabled(d) )
         {
             rc = -EINVAL;
             break;

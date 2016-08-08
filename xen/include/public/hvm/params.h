@@ -225,8 +225,16 @@
 /* Location of the VM Generation ID in guest physical address space. */
 #define HVM_PARAM_VM_GENERATION_ID_ADDR 34
 
-/* Boolean: Enable altp2m */
+/*
+ * Set mode for altp2m:
+ *  disabled: don't activate altp2m (default)
+ *  mixed: allow access to altp2m for both in-guest and external tools
+ *  external_only: allow access to external privileged tools only
+ */
 #define HVM_PARAM_ALTP2M       35
+#define XEN_ALTP2M_disabled      0
+#define XEN_ALTP2M_mixed         1
+#define XEN_ALTP2M_external_only 2
 
 /*
  * Size of the x87 FPU FIP/FDP registers that the hypervisor needs to

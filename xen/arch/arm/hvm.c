@@ -72,7 +72,8 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
         goto out;
     }
 
-    if ( (rc = xsm_hvm_altp2mhvm_op(XSM_TARGET, d)) )
+    if ( (rc = xsm_hvm_altp2mhvm_op(XSM_OTHER, d,
+                d->arch.hvm_domain.params[HVM_PARAM_ALTP2M])) )
         goto out;
 
     switch ( a.cmd )
@@ -231,6 +232,17 @@ long do_hvm_op(unsigned long op, XEN_GUEST_HANDLE_PARAM(void) arg)
             rc = hvm_allow_set_param(d, &a);
             if ( rc )
                 break;
+
+            switch ( a.index )
+            {
+            case HVM_PARAM_ALTP2M:
+                rc = xsm_hvm_param_altp2mhvm(XSM_PRIV, d);
+                if ( rc )
+                    break;
+                if ( a.value > XEN_ALTP2M_external_only )
+                    rc = -EINVAL;
+                break;
+            }
 
             d->arch.hvm_domain.params[a.index] = a.value;
             break;
