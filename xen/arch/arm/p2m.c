@@ -62,14 +62,14 @@ static inline bool_t p2m_is_superpage(lpae_t pte, unsigned int level)
     return (level < 3) && p2m_mapping(pte);
 }
 
-static inline void p2m_write_lock(struct p2m_domain *p2m)
+void p2m_write_lock(struct p2m_domain *p2m)
 {
     write_lock(&p2m->lock);
 }
 
 static void p2m_flush_tlb(struct p2m_domain *p2m);
 
-static inline void p2m_write_unlock(struct p2m_domain *p2m)
+void p2m_write_unlock(struct p2m_domain *p2m)
 {
     if ( p2m->need_flush )
     {
@@ -85,22 +85,22 @@ static inline void p2m_write_unlock(struct p2m_domain *p2m)
     write_unlock(&p2m->lock);
 }
 
-static inline void p2m_read_lock(struct p2m_domain *p2m)
+void p2m_read_lock(struct p2m_domain *p2m)
 {
     read_lock(&p2m->lock);
 }
 
-static inline void p2m_read_unlock(struct p2m_domain *p2m)
+void p2m_read_unlock(struct p2m_domain *p2m)
 {
     read_unlock(&p2m->lock);
 }
 
-static inline int p2m_is_locked(struct p2m_domain *p2m)
+int p2m_is_locked(struct p2m_domain *p2m)
 {
     return rw_is_locked(&p2m->lock);
 }
 
-static inline int p2m_is_write_locked(struct p2m_domain *p2m)
+int p2m_is_write_locked(struct p2m_domain *p2m)
 {
     return rw_is_write_locked(&p2m->lock);
 }
