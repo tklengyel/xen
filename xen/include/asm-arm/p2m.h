@@ -216,6 +216,37 @@ void guest_physmap_remove_page(struct domain *d,
 mfn_t gfn_to_mfn(struct domain *d, gfn_t gfn);
 
 /*
+ * P2M rwlock helpers.
+ */
+
+static inline void p2m_write_lock(struct p2m_domain *p2m)
+{
+    write_lock(&p2m->lock);
+}
+
+void p2m_write_unlock(struct p2m_domain *p2m);
+
+static inline void p2m_read_lock(struct p2m_domain *p2m)
+{
+    read_lock(&p2m->lock);
+}
+
+static inline void p2m_read_unlock(struct p2m_domain *p2m)
+{
+    read_unlock(&p2m->lock);
+}
+
+static inline int p2m_is_locked(struct p2m_domain *p2m)
+{
+    return rw_is_locked(&p2m->lock);
+}
+
+static inline int p2m_is_write_locked(struct p2m_domain *p2m)
+{
+    return rw_is_write_locked(&p2m->lock);
+}
+
+/*
  * Populate-on-demand
  */
 
