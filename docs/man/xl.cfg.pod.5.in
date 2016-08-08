@@ -1678,7 +1678,7 @@ guest Operating Systems.
 
 =item B<altp2m="MODE">
 
-B<(x86 only)> Specifies the access mode to the alternate-p2m capability.
+Specifies the access mode to the alternate-p2m capability.
 Alternate-p2m allows a guest to manage multiple p2m guest physical "memory
 views" (as opposed to a single p2m).
 You may want this option if you want to access-control/isolate
@@ -1696,8 +1696,8 @@ Altp2m is disabled for the domain (default).
 
 =item B<mixed>
 
-The mixed mode allows access to the altp2m interface for both in-guest
-and external tools as well.
+B<(x86 only)> The mixed mode allows access to the altp2m interface for both
+in-guest and external tools as well.
 
 =item B<external>
 
@@ -1705,7 +1705,7 @@ Enables access to the alternate-p2m capability by external privileged tools.
 
 =item B<limited>
 
-Enables limited access to the alternate-p2m capability,
+B<(x86 only)> Enables limited access to the alternate-p2m capability,
 ie. giving the guest access only to enable/disable the VMFUNC and #VE features.
 
 =back
