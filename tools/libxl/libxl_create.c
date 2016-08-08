@@ -406,6 +406,7 @@ int libxl__domain_build_info_setdefault(libxl__gc *gc,
             libxl_domain_type_to_string(b_info->type));
         return ERROR_INVAL;
     }
+
     return 0;
 }
 
@@ -918,8 +919,10 @@ static void initiate_domain_create(libxl__egc *egc,
 
     if (d_config->c_info.type == LIBXL_DOMAIN_TYPE_HVM &&
         (libxl_defbool_val(d_config->b_info.u.hvm.nested_hvm) &&
-         libxl_defbool_val(d_config->b_info.u.hvm.altp2m))) {
-        LOG(ERROR, "nestedhvm and altp2mhvm cannot be used together");
+        /* Cannot combine nested_hvm with altp2m or altp2mhvm params. */
+        (libxl_defbool_val(d_config->b_info.u.hvm.altp2m) ||
+        (d_config->b_info.altp2m != LIBXL_ALTP2M_MODE_DISABLED)))) {
+        LOG(ERROR, "nestedhvm and altp2m cannot be used together");
         goto error_out;
     }
 

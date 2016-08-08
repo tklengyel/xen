@@ -847,9 +847,17 @@ typedef struct libxl__ctx libxl_ctx;
 
 /*
  * LIBXL_HAVE_ALTP2M
- * If this is defined, then libxl supports alternate p2m functionality.
+ * If this is defined, then libxl supports alternate p2m functionality for
+ * x86 HVM guests.
  */
 #define LIBXL_HAVE_ALTP2M 1
+
+/*
+ * LIBXL_HAVE_ARM_ALTP2M
+ * If this is defined, then libxl supports alternate p2m functionality for
+ * ARM guests.
+ */
+#define LIBXL_HAVE_ARM_ALTP2M 1
 
 /*
  * LIBXL_HAVE_REMUS
