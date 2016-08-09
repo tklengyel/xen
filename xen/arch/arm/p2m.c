@@ -37,6 +37,27 @@ static unsigned int __read_mostly max_vmid = MAX_VMID_8_BIT;
 
 #define P2M_ROOT_PAGES    (1<<P2M_ROOT_ORDER)
 
+#define p2m_switch_vttbr_and_get_flags(ovttbr, nvttbr, flags)       \
+({                                                                  \
+    ovttbr = READ_SYSREG64(VTTBR_EL2);                              \
+    if ( ovttbr != nvttbr )                                         \
+    {                                                               \
+        local_irq_save(flags);                                      \
+        WRITE_SYSREG64(nvttbr, VTTBR_EL2);                          \
+        isb();                                                      \
+    }                                                               \
+})
+
+#define p2m_restore_vttbr_and_set_flags(ovttbr, flags)              \
+({                                                                  \
+    if ( ovttbr != READ_SYSREG64(VTTBR_EL2) )                       \
+    {                                                               \
+        WRITE_SYSREG64(ovttbr, VTTBR_EL2);                          \
+        isb();                                                      \
+        local_irq_restore(flags);                                   \
+    }                                                               \
+})
+
 unsigned int __read_mostly p2m_ipa_bits;
 
 /* Helpers to lookup the properties of each level */
@@ -141,22 +162,11 @@ static void p2m_force_tlb_flush_sync(struct p2m_domain *p2m)
      * ARM only provides an instruction to flush TLBs for the current
      * VMID. So switch to the VTTBR of a given P2M if different.
      */
-    ovttbr = READ_SYSREG64(VTTBR_EL2);
-    if ( ovttbr != p2m->vttbr )
-    {
-        local_irq_save(flags);
-        WRITE_SYSREG64(p2m->vttbr, VTTBR_EL2);
-        isb();
-    }
+    p2m_switch_vttbr_and_get_flags(ovttbr, p2m->vttbr, flags);
 
     flush_tlb();
 
-    if ( ovttbr != READ_SYSREG64(VTTBR_EL2) )
-    {
-        WRITE_SYSREG64(ovttbr, VTTBR_EL2);
-        isb();
-        local_irq_restore(flags);
-    }
+    p2m_restore_vttbr_and_set_flags(ovttbr, flags);
 
     p2m->need_flush = false;
 }
