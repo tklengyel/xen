@@ -107,7 +107,7 @@ static inline int p2m_is_write_locked(struct p2m_domain *p2m)
 
 void p2m_dump_info(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
     p2m_read_lock(p2m);
     printk("p2m mappings for domain %d (vmid %d):\n",
@@ -127,7 +127,7 @@ void memory_type_changed(struct domain *d)
 
 void dump_p2m_lookup(struct domain *d, paddr_t addr)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
     printk("dom%d IPA 0x%"PRIpaddr"\n", d->domain_id, addr);
 
@@ -146,7 +146,7 @@ void p2m_save_state(struct vcpu *p)
 void p2m_restore_state(struct vcpu *n)
 {
     register_t hcr;
-    struct p2m_domain *p2m = &n->domain->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(n->domain);
 
     if ( is_idle_vcpu(n) )
         return;
@@ -405,7 +405,7 @@ out:
 mfn_t p2m_lookup(struct domain *d, gfn_t gfn, p2m_type_t *t)
 {
     mfn_t ret;
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
     p2m_read_lock(p2m);
     ret = p2m_get_entry(p2m, gfn, t, NULL, NULL);
@@ -1052,7 +1052,7 @@ static inline int p2m_insert_mapping(struct domain *d,
                                      mfn_t mfn,
                                      p2m_type_t t)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc;
 
     p2m_write_lock(p2m);
@@ -1071,7 +1071,7 @@ static inline int p2m_remove_mapping(struct domain *d,
                                      unsigned long nr,
                                      mfn_t mfn)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc;
 
     p2m_write_lock(p2m);
@@ -1153,7 +1153,7 @@ void guest_physmap_remove_page(struct domain *d,
 
 static int p2m_alloc_table(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *page;
     unsigned int i;
 
@@ -1196,7 +1196,7 @@ void p2m_vmid_allocator_init(void)
 
 static int p2m_alloc_vmid(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
     int rc, nr;
 
@@ -1226,7 +1226,7 @@ out:
 
 static void p2m_free_vmid(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     spin_lock(&vmid_alloc_lock);
     if ( p2m->vmid != INVALID_VMID )
         clear_bit(p2m->vmid, vmid_mask);
@@ -1236,7 +1236,7 @@ static void p2m_free_vmid(struct domain *d)
 
 void p2m_teardown(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *pg;
 
     while ( (pg = page_list_remove_head(&p2m->pages)) )
@@ -1254,7 +1254,7 @@ void p2m_teardown(struct domain *d)
 
 int p2m_init(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     int rc = 0;
 
     rwlock_init(&p2m->lock);
@@ -1296,7 +1296,7 @@ int p2m_init(struct domain *d)
  */
 int relinquish_p2m_mapping(struct domain *d)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     unsigned long count = 0;
     p2m_type_t t;
     int rc = 0;
@@ -1347,7 +1347,7 @@ int relinquish_p2m_mapping(struct domain *d)
 
 int p2m_cache_flush(struct domain *d, gfn_t start, unsigned long nr)
 {
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     gfn_t end = gfn_add(start, nr);
     p2m_type_t t;
     unsigned int order;
@@ -1410,7 +1410,7 @@ p2m_mem_access_check_and_get_page(vaddr_t gva, unsigned long flag)
     xenmem_access_t xma;
     p2m_type_t t;
     struct page_info *page = NULL;
-    struct p2m_domain *p2m = &current->domain->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(current->domain);
 
     rc = gva_to_ipa(gva, &ipa, flag);
     if ( rc < 0 )
@@ -1497,7 +1497,7 @@ struct page_info *get_page_from_gva(struct vcpu *v, vaddr_t va,
                                     unsigned long flags)
 {
     struct domain *d = v->domain;
-    struct p2m_domain *p2m = &d->arch.p2m;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *page = NULL;
     paddr_t maddr = 0;
     int rc;
