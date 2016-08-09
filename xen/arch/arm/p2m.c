@@ -27,6 +27,26 @@ static unsigned int __read_mostly p2m_root_level;
 
 #define P2M_ROOT_PAGES    (1<<P2M_ROOT_ORDER)
 
+#define p2m_switch_vttbr_and_get_flags(ovttbr, nvttbr, flags)       \
+({                                                                  \
+    if ( ovttbr != nvttbr )                                         \
+    {                                                               \
+        local_irq_save(flags);                                      \
+        WRITE_SYSREG64(nvttbr, VTTBR_EL2);                          \
+        isb();                                                      \
+    }                                                               \
+})
+
+#define p2m_restore_vttbr_and_set_flags(ovttbr, flags)              \
+({                                                                  \
+    if ( ovttbr != READ_SYSREG64(VTTBR_EL2) )                       \
+    {                                                               \
+        WRITE_SYSREG64(ovttbr, VTTBR_EL2);                          \
+        isb();                                                      \
+        local_irq_restore(flags);                                   \
+    }                                                               \
+})
+
 unsigned int __read_mostly p2m_ipa_bits;
 
 /* Helpers to lookup the properties of each level */
@@ -173,28 +193,17 @@ void p2m_restore_state(struct vcpu *n)
 static void p2m_flush_tlb(struct p2m_domain *p2m)
 {
     unsigned long flags = 0;
-    uint64_t ovttbr;
+    uint64_t ovttbr = READ_SYSREG64(VTTBR_EL2);
 
     /*
      * ARM only provides an instruction to flush TLBs for the current
      * VMID. So switch to the VTTBR of a given P2M if different.
      */
-    ovttbr = READ_SYSREG64(VTTBR_EL2);
-    if ( ovttbr != p2m->vttbr )
-    {
-        local_irq_save(flags);
-        WRITE_SYSREG64(p2m->vttbr, VTTBR_EL2);
-        isb();
-    }
+    p2m_switch_vttbr_and_get_flags(ovttbr, p2m->vttbr, flags);
 
     flush_tlb();
 
-    if ( ovttbr != READ_SYSREG64(VTTBR_EL2) )
-    {
-        WRITE_SYSREG64(ovttbr, VTTBR_EL2);
-        isb();
-        local_irq_restore(flags);
-    }
+    p2m_restore_vttbr_and_set_flags(ovttbr, flags);
 }
 
 /*
