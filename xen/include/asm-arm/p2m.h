@@ -18,6 +18,11 @@ struct domain;
 
 extern void memory_type_changed(struct domain *);
 
+typedef enum {
+    p2m_host,
+    p2m_alternate,
+} p2m_class_t;
+
 /* Per-p2m-table state */
 struct p2m_domain {
     /* Lock that protects updates to the p2m */
@@ -92,6 +97,9 @@ struct p2m_domain {
      * enough available bits to store this information.
      */
     struct radix_tree_root mem_access_settings;
+
+    /* Choose between: host/alternate. */
+    p2m_class_t p2m_class;
 };
 
 /*
@@ -302,6 +310,16 @@ static inline int get_page_and_type(struct page_info *page,
 
 /* get host p2m table */
 #define p2m_get_hostp2m(d) (&(d)->arch.p2m)
+
+static inline bool_t p2m_is_hostp2m(const struct p2m_domain *p2m)
+{
+    return p2m->p2m_class == p2m_host;
+}
+
+static inline bool_t p2m_is_altp2m(const struct p2m_domain *p2m)
+{
+    return p2m->p2m_class == p2m_alternate;
+}
 
 /* vm_event and mem_access are supported on any ARM guest */
 static inline bool_t p2m_mem_access_sanity_check(struct domain *d)
