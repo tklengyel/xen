@@ -29,6 +29,7 @@
 #include <asm/monitor.h>
 #include <asm/vm_event.h>
 #include <xsm/xsm.h>
+#include <asm/altp2m.h>
 
 /* for public/io/ring.h macros */
 #define xen_mb()   mb()
@@ -423,7 +424,7 @@ void vm_event_resume(struct domain *d, struct vm_event_domain *ved)
 
         /* Check for altp2m switch */
         if ( rsp.flags & VM_EVENT_FLAG_ALTERNATE_P2M )
-            p2m_altp2m_check(v, rsp.altp2m_idx);
+            altp2m_check(v, rsp.altp2m_idx);
 
         /* Check flags which apply only when the vCPU is paused */
         if ( atomic_read(&v->vm_event_pause_count) )

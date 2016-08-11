@@ -65,6 +65,12 @@ altp2m_vcpu_destroy(struct vcpu *v)
         vcpu_unpause(v);
 }
 
+void altp2m_check(struct vcpu *v, uint16_t idx)
+{
+    if ( altp2m_active(v->domain) )
+        p2m_switch_vcpu_altp2m_by_id(v, idx);
+}
+
 /*
  * Local variables:
  * mode: C

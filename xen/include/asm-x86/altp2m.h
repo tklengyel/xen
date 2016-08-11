@@ -38,4 +38,7 @@ static inline uint16_t altp2m_vcpu_idx(const struct vcpu *v)
     return vcpu_altp2m(v).p2midx;
 }
 
+/* Check to see if vcpu should be switched to a different p2m. */
+void altp2m_check(struct vcpu *v, uint16_t idx);
+
 #endif /* __ASM_X86_ALTP2M_H */
