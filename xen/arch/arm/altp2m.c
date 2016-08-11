@@ -32,6 +32,38 @@ struct p2m_domain *altp2m_get_altp2m(struct vcpu *v)
     return v->domain->arch.altp2m_p2m[index];
 }
 
+static bool_t altp2m_switch_vcpu_altp2m_by_id(struct vcpu *v, unsigned int idx)
+{
+    struct domain *d = v->domain;
+    bool_t rc = false;
+
+    if ( idx >= MAX_ALTP2M )
+        return rc;
+
+    altp2m_lock(d);
+
+    if ( d->arch.altp2m_p2m[idx] != NULL )
+    {
+        if ( idx != altp2m_vcpu(v).p2midx )
+        {
+            atomic_dec(&altp2m_get_altp2m(v)->active_vcpus);
+            altp2m_vcpu(v).p2midx = idx;
+            atomic_inc(&altp2m_get_altp2m(v)->active_vcpus);
+        }
+        rc = true;
+    }
+
+    altp2m_unlock(d);
+
+    return rc;
+}
+
+void altp2m_check(struct vcpu *v, uint16_t idx)
+{
+    if ( altp2m_active(v->domain) )
+        altp2m_switch_vcpu_altp2m_by_id(v, idx);
+}
+
 int altp2m_switch_domain_altp2m_by_id(struct domain *d, unsigned int idx)
 {
     struct vcpu *v;

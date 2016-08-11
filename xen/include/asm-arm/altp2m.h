@@ -38,9 +38,7 @@ static inline bool_t altp2m_active(const struct domain *d)
 /* Alternate p2m VCPU */
 static inline uint16_t altp2m_vcpu_idx(const struct vcpu *v)
 {
-    /* Not implemented on ARM, should not be reached. */
-    BUG();
-    return 0;
+    return altp2m_vcpu(v).p2midx;
 }
 
 int altp2m_init(struct domain *d);
@@ -51,6 +49,9 @@ void altp2m_vcpu_destroy(struct vcpu *v);
 
 /* Get current alternate p2m table. */
 struct p2m_domain *altp2m_get_altp2m(struct vcpu *v);
+
+/* Check to see if vcpu should be switched to a different p2m. */
+void altp2m_check(struct vcpu *v, uint16_t idx);
 
 /* Switch alternate p2m for entire domain */
 int altp2m_switch_domain_altp2m_by_id(struct domain *d,

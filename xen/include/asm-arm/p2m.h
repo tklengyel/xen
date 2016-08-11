@@ -161,12 +161,6 @@ void p2m_mem_access_emulate_check(struct vcpu *v,
     /* Not supported on ARM. */
 }
 
-static inline
-void p2m_altp2m_check(struct vcpu *v, uint16_t idx)
-{
-    /* Not supported on ARM. */
-}
-
 /* Initialise vmid allocator */
 void p2m_vmid_allocator_init(void);
 
