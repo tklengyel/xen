@@ -100,6 +100,9 @@ struct p2m_domain {
 
     /* Choose between: host/alternate. */
     p2m_class_t p2m_class;
+
+    /* Back pointer to struct domain. */
+    struct domain *domain;
 };
 
 /*
