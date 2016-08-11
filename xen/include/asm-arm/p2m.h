@@ -19,6 +19,11 @@ struct domain;
 
 extern void memory_type_changed(struct domain *);
 
+typedef enum {
+    p2m_host,
+    p2m_alternate,
+} p2m_class_t;
+
 /* Per-p2m-table state */
 struct p2m_domain {
     /*
@@ -101,6 +106,9 @@ struct p2m_domain {
 
     /* Keeping track on which CPU this p2m was used and for which vCPU */
     uint8_t last_vcpu_ran[NR_CPUS];
+
+    /* Choose between: host/alternate. */
+    p2m_class_t p2m_class;
 };
 
 /*
@@ -322,6 +330,16 @@ static inline int get_page_and_type(struct page_info *page,
 
 /* get host p2m table */
 #define p2m_get_hostp2m(d) (&(d)->arch.p2m)
+
+static inline bool p2m_is_hostp2m(const struct p2m_domain *p2m)
+{
+    return p2m->p2m_class == p2m_host;
+}
+
+static inline bool p2m_is_altp2m(const struct p2m_domain *p2m)
+{
+    return p2m->p2m_class == p2m_alternate;
+}
 
 static inline bool p2m_vm_event_sanity_check(struct domain *d)
 {
