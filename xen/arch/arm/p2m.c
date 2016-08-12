@@ -29,6 +29,9 @@ static unsigned int __read_mostly p2m_root_level;
 
 #define P2M_ROOT_PAGES    (1<<P2M_ROOT_ORDER)
 
+#define p2m_get_active_p2m(v) unlikely(altp2m_active(v->domain)) ?  \
+                              altp2m_get_altp2m(v) : p2m_get_hostp2m(v->domain);
+
 #define p2m_switch_vttbr_and_get_flags(ovttbr, nvttbr, flags)       \
 ({                                                                  \
     if ( ovttbr != nvttbr )                                         \
