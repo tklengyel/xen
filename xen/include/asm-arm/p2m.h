@@ -14,6 +14,9 @@
 
 #define paddr_bits PADDR_BITS
 
+#define p2m_get_active_p2m(v) unlikely(altp2m_active(v->domain)) ?  \
+                              altp2m_get_altp2m(v) : p2m_get_hostp2m(v->domain);
+
 /* Holds the bit size of IPAs in p2m tables.  */
 extern unsigned int p2m_ipa_bits;
 
