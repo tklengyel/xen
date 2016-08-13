@@ -1208,24 +1208,24 @@ static int p2m_alloc_vmid(struct domain *d)
 {
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
-    int rc, nr;
+    int rc, vmid;
 
     spin_lock(&vmid_alloc_lock);
 
-    nr = find_first_zero_bit(vmid_mask, MAX_VMID);
+    vmid = find_first_zero_bit(vmid_mask, MAX_VMID);
 
-    ASSERT(nr != INVALID_VMID);
+    ASSERT(vmid != INVALID_VMID);
 
-    if ( nr == MAX_VMID )
+    if ( vmid == MAX_VMID )
     {
         rc = -EBUSY;
         printk(XENLOG_ERR "p2m.c: dom%d: VMID pool exhausted\n", d->domain_id);
         goto out;
     }
 
-    set_bit(nr, vmid_mask);
+    set_bit(vmid, vmid_mask);
 
-    p2m->vmid = nr;
+    p2m->vmid = vmid;
 
     rc = 0;
 
