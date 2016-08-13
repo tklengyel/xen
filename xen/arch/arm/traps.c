@@ -2408,6 +2408,12 @@ static void do_trap_instr_abort_guest(struct cpu_user_regs *regs,
     paddr_t gpa;
     mfn_t mfn;
 
+    const struct npfec npfec = {
+        .insn_fetch = 1,
+        .gla_valid = 1,
+        .kind = hsr.iabt.s1ptw ? npfec_kind_in_gpt : npfec_kind_with_gla
+    };
+
     if ( hpfar_is_valid(hsr.iabt.s1ptw, fsc) )
         gpa = get_faulting_ipa(gva);
     else
@@ -2433,20 +2439,12 @@ static void do_trap_instr_abort_guest(struct cpu_user_regs *regs,
     switch ( fsc )
     {
     case FSC_FLT_PERM:
-    {
-        const struct npfec npfec = {
-            .insn_fetch = 1,
-            .gla_valid = 1,
-            .kind = hsr.iabt.s1ptw ? npfec_kind_in_gpt : npfec_kind_with_gla
-        };
-
         rc = p2m_mem_access_check(gpa, gva, npfec);
 
         /* Trap was triggered by mem_access, work here is done */
         if ( !rc )
             return;
         break;
-    }
     case FSC_FLT_TRANS:
         /*
          * The PT walk may have failed because someone was playing
@@ -2502,6 +2500,13 @@ static void do_trap_data_abort_guest(struct cpu_user_regs *regs,
     uint8_t fsc = hsr.dabt.dfsc & ~FSC_LL_MASK;
     mfn_t mfn;
 
+    const struct npfec npfec = {
+        .read_access = !dabt.write,
+        .write_access = dabt.write,
+        .gla_valid = 1,
+        .kind = dabt.s1ptw ? npfec_kind_in_gpt : npfec_kind_with_gla
+    };
+
     info.dabt = dabt;
 #ifdef CONFIG_ARM_32
     info.gva = READ_CP32(HDFAR);
@@ -2526,21 +2531,12 @@ static void do_trap_data_abort_guest(struct cpu_user_regs *regs,
     switch ( fsc )
     {
     case FSC_FLT_PERM:
-    {
-        const struct npfec npfec = {
-            .read_access = !dabt.write,
-            .write_access = dabt.write,
-            .gla_valid = 1,
-            .kind = dabt.s1ptw ? npfec_kind_in_gpt : npfec_kind_with_gla
-        };
-
         rc = p2m_mem_access_check(info.gpa, info.gva, npfec);
 
         /* Trap was triggered by mem_access, work here is done */
         if ( !rc )
             return;
         break;
-    }
     case FSC_FLT_TRANS:
         /*
          * Attempt first to emulate the MMIO has the data abort will
