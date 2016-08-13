@@ -84,6 +84,10 @@ int altp2m_set_mem_access(struct domain *d,
                           p2m_access_t a,
                           gfn_t gfn);
 
+/* Alternate p2m paging mechanism. */
+bool_t altp2m_lazy_copy(struct vcpu *v,
+                        gfn_t gfn);
+
 /* Propagates changes made to hostp2m to affected altp2m views. */
 int altp2m_propagate_change(struct domain *d,
                             gfn_t sgfn,
