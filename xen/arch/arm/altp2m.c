@@ -155,6 +155,72 @@ int altp2m_set_mem_access(struct domain *d,
     return rc;
 }
 
+/*
+ * The function altp2m_lazy_copy returns "false" on error.  The return value
+ * "true" signals that either the mapping has been successfully lazy-copied
+ * from the hostp2m to the currently active altp2m view or that the altp2m view
+ * holds already a valid mapping. The latter is the case if multiple vcpus
+ * using the same altp2m view generate a translation fault that is led back in
+ * both cases to the same mapping and the first fault has been already handled.
+ */
+bool altp2m_lazy_copy(struct vcpu *v, gfn_t gfn)
+{
+    struct domain *d = v->domain;
+    struct p2m_domain *hp2m = p2m_get_hostp2m(d), *ap2m = NULL;
+    p2m_type_t p2mt;
+    p2m_access_t p2ma;
+    mfn_t mfn;
+    unsigned int page_order;
+    int rc;
+
+    ap2m = altp2m_get_altp2m(v);
+    if ( unlikely(!ap2m) )
+        return false;
+
+    /*
+     * Lock hp2m to prevent the hostp2m to change a mapping before it is added
+     * to the altp2m view.
+     */
+    p2m_read_lock(hp2m);
+    p2m_write_lock(ap2m);
+
+    /* Check if entry is part of the altp2m view. */
+    mfn = p2m_get_entry(ap2m, gfn, NULL, NULL, NULL);
+
+    /*
+     * If multiple vcpus are using the same altp2m, it is likely that both
+     * generate a translation fault, whereas the first one will be handled
+     * successfully and the second will encounter a valid mapping that has
+     * already been added as a result of the previous translation fault. In
+     * this case, the 2nd vcpu needs to retry accessing the faulting address.
+     */
+    if ( !mfn_eq(mfn, INVALID_MFN) )
+        goto out;
+
+    /* Check if entry is part of the host p2m view. */
+    mfn = p2m_get_entry(hp2m, gfn, &p2mt, &p2ma, &page_order);
+    if ( mfn_eq(mfn, INVALID_MFN) )
+        goto out;
+
+    /* Align the gfn and mfn to the given pager order. */
+    gfn = _gfn(gfn_x(gfn) & ~((1UL << page_order) - 1));
+    mfn = _mfn(mfn_x(mfn) & ~((1UL << page_order) - 1));
+
+    rc = p2m_set_entry(ap2m, gfn, (1UL << page_order), mfn, p2mt, p2ma);
+    if ( rc )
+    {
+        gdprintk(XENLOG_ERR, "altp2m[%u] failed to set entry for %#"PRI_gfn" -> %#"PRI_mfn"\n",
+                 v->arch.ap2m_idx, gfn_x(gfn), mfn_x(mfn));
+        domain_crash(d);
+    }
+
+out:
+    p2m_write_unlock(ap2m);
+    p2m_read_unlock(hp2m);
+
+    return true;
+}
+
 static inline void altp2m_reset(struct p2m_domain *p2m)
 {
     p2m_write_lock(p2m);

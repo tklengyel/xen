@@ -38,6 +38,7 @@
 #include <public/xen.h>
 
 #include <asm/acpi.h>
+#include <asm/altp2m.h>
 #include <asm/cpuerrata.h>
 #include <asm/cpufeature.h>
 #include <asm/debugger.h>
@@ -1983,6 +1984,14 @@ static void do_trap_stage2_abort_guest(struct cpu_user_regs *regs,
                 break;
             }
         }
+
+        /*
+         * The guest shall retry accessing the page if the altp2m handler
+         * succeeds. Otherwise, we continue injecting an instruction/data abort
+         * exception.
+         */
+        if ( altp2m_lazy_copy(current, gaddr_to_gfn(gpa)) )
+            return;
 
         /*
          * The PT walk may have failed because someone was playing
