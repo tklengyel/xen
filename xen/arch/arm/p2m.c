@@ -1165,6 +1165,42 @@ void guest_physmap_remove_page(struct domain *d,
     p2m_remove_mapping(p2m_get_hostp2m(d), gfn, (1 << page_order), mfn);
 }
 
+int remove_altp2m_entry(struct p2m_domain *ap2m,
+                        gfn_t gfn,
+                        mfn_t mfn,
+                        unsigned int page_order)
+{
+    ASSERT(p2m_is_altp2m(ap2m));
+
+    /* Align the gfn and mfn to the given pager order. */
+    gfn = _gfn(gfn_x(gfn) & ~((1UL << page_order)-1));
+    mfn = _mfn(mfn_x(mfn) & ~((1UL << page_order)-1));
+
+    return p2m_remove_mapping(ap2m, gfn, (1UL << page_order), mfn);
+}
+
+int modify_altp2m_entry(struct p2m_domain *ap2m,
+                        gfn_t gfn,
+                        mfn_t mfn,
+                        p2m_type_t t,
+                        p2m_access_t a,
+                        unsigned int page_order)
+{
+    int rc;
+
+    ASSERT(p2m_is_altp2m(ap2m));
+
+    /* Align the gfn and mfn to the given pager order. */
+    gfn = _gfn(gfn_x(gfn) & ~((1UL << page_order)-1));
+    mfn = _mfn(mfn_x(mfn) & ~((1UL << page_order)-1));
+
+    p2m_write_lock(ap2m);
+    rc = p2m_set_entry(ap2m, gfn, (1UL << page_order), mfn, t, a);
+    p2m_write_unlock(ap2m);
+
+    return rc;
+}
+
 static int p2m_alloc_table(struct p2m_domain *p2m)
 {
     struct page_info *page;
