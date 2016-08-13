@@ -165,6 +165,68 @@ out:
     return rc;
 }
 
+/*
+ * The function altp2m_lazy_copy returns "false" on error.  The return value
+ * "true" signals that either the mapping has been successfully lazy-copied
+ * from the hostp2m to the currently active altp2m view or that the altp2m view
+ * holds already a valid mapping. The latter is the case if multiple vcpu's
+ * using the same altp2m view generate a translation fault that is led back in
+ * both cases to the same mapping and the first fault has been already handled.
+ */
+bool_t altp2m_lazy_copy(struct vcpu *v,
+                        gfn_t gfn,
+                        struct npfec npfec)
+{
+    struct domain *d = v->domain;
+    struct p2m_domain *hp2m = p2m_get_hostp2m(d), *ap2m = NULL;
+    p2m_type_t p2mt;
+    p2m_access_t p2ma;
+    mfn_t mfn;
+    unsigned int page_order;
+    int rc;
+
+    ap2m = altp2m_get_altp2m(v);
+    if ( ap2m == NULL)
+        return false;
+
+    /* Check if entry is part of the altp2m view. */
+    mfn = p2m_lookup_attr(ap2m, gfn, NULL, NULL, NULL);
+    if ( !mfn_eq(mfn, INVALID_MFN) )
+        /*
+         * If multiple vcpu's are using the same altp2m, it is likely that both
+         * generate a translation fault, whereas the first one will be handled
+         * successfully and the second will encounter a valid mapping that has
+         * already been added as a result of the previous translation fault.
+         * In this case, the 2nd vcpu need to retry accessing the faulting
+         * address.
+         */
+        return true;
+
+    /*
+     * Lock hp2m to prevent the hostp2m to change a mapping before it is added
+     * to the altp2m view.
+     */
+    p2m_read_lock(hp2m);
+
+    /* Check if entry is part of the host p2m view. */
+    mfn = p2m_lookup_attr(hp2m, gfn, &p2mt, &p2ma, &page_order);
+    if ( mfn_eq(mfn, INVALID_MFN) )
+        goto out;
+
+    rc = modify_altp2m_entry(ap2m, gfn, mfn, p2mt, p2ma, page_order);
+    if ( rc )
+    {
+        gdprintk(XENLOG_ERR, "altp2m[%d] failed to set entry for %#"PRI_gfn" -> %#"PRI_mfn"\n",
+                 altp2m_vcpu(v).p2midx, gfn_x(gfn), mfn_x(mfn));
+        domain_crash(hp2m->domain);
+    }
+
+out:
+    p2m_read_unlock(hp2m);
+
+    return true;
+}
+
 static inline void altp2m_reset(struct p2m_domain *p2m)
 {
     p2m_write_lock(p2m);

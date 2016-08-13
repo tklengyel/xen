@@ -49,6 +49,8 @@
 #include <asm/vgic.h>
 #include <asm/cpuerrata.h>
 
+#include <asm/altp2m.h>
+
 /* The base of the stack must always be double-word aligned, which means
  * that both the kernel half of struct cpu_user_regs (which is pushed in
  * entry.S) and struct cpu_info (which lives at the bottom of a Xen
@@ -2399,6 +2401,24 @@ static inline bool hpfar_is_valid(bool s1ptw, uint8_t fsc)
     return s1ptw || (fsc == FSC_FLT_TRANS && !check_workaround_834220());
 }
 
+static bool_t try_handle_altp2m(struct vcpu *v,
+                                paddr_t gpa,
+                                struct npfec npfec)
+{
+    bool_t rc = false;
+
+    if ( altp2m_active(v->domain) )
+        /*
+         * Copy the mapping of the faulting address into the currently
+         * active altp2m view. Return true on success or if the particular
+         * mapping has already been lazily copied to the currently active
+         * altp2m view by another vcpu. Return false otherwise.
+         */
+        rc = altp2m_lazy_copy(v, _gfn(paddr_to_pfn(gpa)), npfec);
+
+    return rc;
+}
+
 static void do_trap_instr_abort_guest(struct cpu_user_regs *regs,
                                       const union hsr hsr)
 {
@@ -2446,6 +2466,14 @@ static void do_trap_instr_abort_guest(struct cpu_user_regs *regs,
             return;
         break;
     case FSC_FLT_TRANS:
+        /*
+         * The guest shall retry accessing the page if the altp2m handler
+         * succeeds. Otherwise, we continue injecting an instruction abort
+         * exception.
+         */
+        if ( try_handle_altp2m(current, gpa, npfec) )
+            return;
+
         /*
          * The PT walk may have failed because someone was playing
          * with the Stage-2 page table. Walk the Stage-2 PT to check
@@ -2547,6 +2575,13 @@ static void do_trap_data_abort_guest(struct cpu_user_regs *regs,
             advance_pc(regs, hsr);
             return;
         }
+
+        /*
+         * The guest shall retry accessing the page if the altp2m handler
+         * succeeds. Otherwise, we continue injecting a data abort exception.
+         */
+        if ( try_handle_altp2m(current, info.gpa, npfec) )
+            return;
 
         /*
          * The PT walk may have failed because someone was playing
