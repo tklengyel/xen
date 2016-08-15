@@ -696,7 +696,7 @@ static void p2m_put_l3_page(struct p2m_domain *p2m, mfn_t mfn, p2m_type_t type)
      * flush the TLBs if the page is reallocated before the end of
      * this loop.
      */
-    if ( p2m_is_foreign(type) )
+    if ( p2m_is_foreign(type) && p2m_is_hostp2m(p2m) )
     {
         ASSERT(mfn_valid(mfn_x(mfn)));
         put_page(mfn_to_page(mfn_x(mfn)));
