@@ -754,7 +754,7 @@ static void p2m_free_entry(struct p2m_domain *p2m,
     if ( !p2m_valid(entry) || p2m_is_superpage(entry, level) )
         return;
 
-    if ( level == 3 )
+    if ( level == 3 && p2m_is_hostp2m(p2m) )
     {
         p2m_put_l3_page(_mfn(entry.p2m.base), entry.p2m.type);
         return;
