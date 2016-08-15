@@ -1004,7 +1004,9 @@ static int __p2m_set_entry(struct p2m_domain *p2m,
      * Free the entry only if the original pte was valid and the base
      * is different (to avoid freeing when permission is changed).
      */
-    if ( p2m_valid(orig_pte) && entry->p2m.base != orig_pte.p2m.base )
+    if ( p2m_valid(orig_pte) &&
+         entry->p2m.base != orig_pte.p2m.base &&
+         p2m_is_hostp2m(p2m) )
         p2m_free_entry(p2m, orig_pte, level);
 
     /* XXX: Flush iommu */
