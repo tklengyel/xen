@@ -626,7 +626,7 @@ static void p2m_put_l3_page(struct p2m_domain *p2m, const lpae_t pte)
      * flush the TLBs if the page is reallocated before the end of
      * this loop.
      */
-    if ( p2m_is_foreign(pte.p2m.type) )
+    if ( p2m_is_foreign(pte.p2m.type) && p2m_is_hostp2m(p2m) )
     {
         mfn_t mfn = _mfn(pte.p2m.base);
 
