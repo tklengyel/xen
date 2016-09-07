@@ -1722,7 +1722,6 @@ bool_t p2m_mem_access_check(paddr_t gpa, vaddr_t gla, const struct npfec npfec)
     xenmem_access_t xma;
     vm_event_request_t *req;
     struct vcpu *v = current;
-    struct domain *d = v->domain;
     struct p2m_domain *p2m = p2m_get_active_p2m(v);
 
     /* Mem_access is not in use. */
