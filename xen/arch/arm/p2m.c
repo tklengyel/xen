@@ -993,6 +993,7 @@ static int __p2m_set_entry(struct p2m_domain *p2m,
      * The radix-tree can only work on 4KB. This is only used when
      * memaccess is enabled.
      */
+    gdprintk(XENLOG_INFO, "Mem access enabled %"PRIu32" || page_order: %"PRIu32"\n", p2m->mem_access_enabled, page_order);
     ASSERT(!p2m->mem_access_enabled || page_order == 0);
     /*
      * The access type should always be p2m_access_rwx when the mapping
@@ -1080,7 +1081,7 @@ static int p2m_set_entry(struct p2m_domain *p2m,
         /* Always map 4k by 4k when memaccess is enabled */
         if ( unlikely(p2m->mem_access_enabled) )
             order = THIRD_ORDER;
-        if ( !(mask & ((1UL << FIRST_ORDER) - 1)) )
+        else if ( !(mask & ((1UL << FIRST_ORDER) - 1)) )
             order = FIRST_ORDER;
         else if ( !(mask & ((1UL << SECOND_ORDER) - 1)) )
             order = SECOND_ORDER;
@@ -1838,6 +1839,8 @@ bool_t p2m_mem_access_check(paddr_t gpa, vaddr_t gla, const struct npfec npfec)
         violation = true;
         break;
     }
+
+    gdprintk(XENLOG_INFO, "Memory access permissions violation @ 0x%"PRIvaddr": %i", gla, violation);
 
     if ( !violation )
         return true;
