@@ -398,6 +398,26 @@ out:
     return rc;
 }
 
+int altp2m_pair_vmid(struct domain *d,
+                     uint16_t idx1,
+                     uint16_t idx2)
+{
+    struct p2m_domain *ap2m1 = d->arch.altp2m_p2m[idx1];
+    struct p2m_domain *ap2m2 = d->arch.altp2m_p2m[idx2];
+    unsigned int cur_idx = altp2m_vcpu(current).p2midx;
+
+    if ( idx1 == cur_idx || idx2 == cur_idx )
+        domain_pause_except_self(d);
+
+    altp2m_reset(ap2m2);
+    ap2m2->vmid = ap2m1->vmid;
+    ap2m2->vttbr = page_to_maddr(ap2m2->root) | ((uint64_t)ap2m2->vmid & 0xff) << 48;
+
+    if ( idx1 == cur_idx || idx2 == cur_idx )
+        domain_unpause_except_self(d);
+
+    return 0;
+}
 
 static void altp2m_vcpu_reset(struct vcpu *v)
 {

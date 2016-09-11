@@ -103,4 +103,9 @@ int altp2m_change_gfn(struct domain *d,
                       gfn_t old_gfn,
                       gfn_t new_gfn);
 
+/* Make the VMIDs of the two given altp2m views equal. */
+int altp2m_pair_vmid(struct domain *d,
+                     uint16_t idx1,
+                     uint16_t idx2);
+
 #endif /* __ASM_ARM_ALTP2M_H */

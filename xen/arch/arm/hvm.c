@@ -153,6 +153,13 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
                                    _gfn(a.u.change_gfn.old_gfn),
                                    _gfn(a.u.change_gfn.new_gfn));
         break;
+
+    case HVMOP_altp2m_pair_vmid:
+        if ( !a.u.pair_vmid.view1 || !a.u.pair_vmid.view2 )
+            rc = -EINVAL;
+        else
+            rc = altp2m_pair_vmid(d, a.u.pair_vmid.view1, a.u.pair_vmid.view2);
+        break;
     }
 
 out:
