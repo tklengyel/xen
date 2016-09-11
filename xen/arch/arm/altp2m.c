@@ -138,6 +138,8 @@ int altp2m_set_mem_access(struct domain *d,
         if ( mfn_eq(mfn, INVALID_MFN) ||
              ((p2mt != p2m_ram_rw) && (p2mt != p2m_ram_ro)) )
         {
+            gdprintk(XENLOG_ERR, "altp2m memaccess failed for %#"PRI_gfn" -> %#"PRI_mfn" because type not good\n",
+                     gfn_x(gfn), mfn_x(mfn));
             rc = -ESRCH;
             goto out;
         }
@@ -212,6 +214,9 @@ bool_t altp2m_lazy_copy(struct vcpu *v,
     mfn = p2m_lookup_attr(hp2m, gfn, &p2mt, &p2ma, &page_order);
     if ( mfn_eq(mfn, INVALID_MFN) )
         goto out;
+
+    gdprintk(XENLOG_ERR, "altp2m[%d] lazy copy entry for %#"PRI_gfn" -> %#"PRI_mfn"\n",
+                 altp2m_vcpu(v).p2midx, gfn_x(gfn), mfn_x(mfn));
 
     rc = modify_altp2m_entry(ap2m, gfn, mfn, p2mt, p2ma, page_order);
     if ( rc )
@@ -402,9 +407,18 @@ int altp2m_pair_vmid(struct domain *d,
                      uint16_t idx1,
                      uint16_t idx2)
 {
-    struct p2m_domain *ap2m1 = d->arch.altp2m_p2m[idx1];
-    struct p2m_domain *ap2m2 = d->arch.altp2m_p2m[idx2];
+    struct p2m_domain *ap2m1;
+    struct p2m_domain *ap2m2;
     unsigned int cur_idx = altp2m_vcpu(current).p2midx;
+
+    if ( idx1 >= MAX_ALTP2M || idx2 >= MAX_ALTP2M )
+        return -EINVAL;
+
+    if ( d->arch.altp2m_p2m[idx1] == NULL || d->arch.altp2m_p2m[idx2] == NULL )
+        return -EINVAL;
+
+    ap2m1 = d->arch.altp2m_p2m[idx1];
+    ap2m2 = d->arch.altp2m_p2m[idx2];
 
     if ( idx1 == cur_idx || idx2 == cur_idx )
         domain_pause_except_self(d);

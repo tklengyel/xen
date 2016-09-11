@@ -465,6 +465,7 @@ DEFINE_XEN_GUEST_HANDLE(xen_hvm_altp2m_change_gfn_t);
 struct xen_hvm_altp2m_pair_vmid {
     uint16_t view1;
     uint16_t view2;
+    uint32_t pad;
 };
 typedef struct xen_hvm_altp2m_pair_vmid xen_hvm_altp2m_pair_vmid_t;
 DEFINE_XEN_GUEST_HANDLE(xen_hvm_altp2m_pair_vmid_t);
