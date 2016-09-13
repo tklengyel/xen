@@ -687,7 +687,7 @@ enum p2m_operation {
  * TODO: Handle superpages, for now we only take special references for leaf
  * pages (specifically foreign ones, which can't be super mapped today).
  */
-static void p2m_put_l3_page(mfn_t mfn, p2m_type_t type)
+static void p2m_put_l3_page(struct p2m_domain *p2m, mfn_t mfn, p2m_type_t type)
 {
     /*
      * TODO: Handle other p2m types
@@ -717,7 +717,7 @@ static void p2m_free_entry(struct p2m_domain *p2m,
 
     if ( level == 3 )
     {
-        p2m_put_l3_page(_mfn(entry.p2m.base), entry.p2m.type);
+        p2m_put_l3_page(p2m, _mfn(entry.p2m.base), entry.p2m.type);
         return;
     }
 
@@ -1370,7 +1370,7 @@ int relinquish_p2m_mapping(struct domain *d)
              */
             start = _gfn(gfn_x(start) & ~((1UL << order) - 1));
         else
-            p2m_put_l3_page(mfn, t);
+            p2m_put_l3_page(p2m, mfn, t);
     }
 
     /*
