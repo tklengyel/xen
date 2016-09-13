@@ -1254,7 +1254,7 @@ int p2m_init(struct domain *d)
         return rc;
 
     p2m->max_mapped_gfn = _gfn(0);
-    p2m->lowest_mapped_gfn = _gfn(ULONG_MAX);
+    p2m->lowest_mapped_gfn = INVALID_GFN;
 
     p2m->domain = d;
     p2m->default_access = p2m_access_rwx;
