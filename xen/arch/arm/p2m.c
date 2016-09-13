@@ -615,7 +615,7 @@ static int p2m_mem_access_radix_set(struct p2m_domain *p2m, gfn_t gfn,
  * TODO: Handle superpages, for now we only take special references for leaf
  * pages (specifically foreign ones, which can't be super mapped today).
  */
-static void p2m_put_l3_page(const lpae_t pte)
+static void p2m_put_l3_page(struct p2m_domain *p2m, const lpae_t pte)
 {
     ASSERT(lpae_valid(pte));
 
@@ -658,7 +658,7 @@ static void p2m_free_entry(struct p2m_domain *p2m,
     if ( level == 3 )
     {
         p2m->stats.mappings[level]--;
-        p2m_put_l3_page(entry);
+        p2m_put_l3_page(p2m, entry);
         return;
     }
 
