@@ -10,6 +10,8 @@
 #include <xen/p2m-common.h>
 #include <public/memory.h>
 
+#include <asm/atomic.h>
+
 #define paddr_bits PADDR_BITS
 
 /* Holds the bit size of IPAs in p2m tables.  */
@@ -106,6 +108,9 @@ struct p2m_domain {
 
     /* Keeping track on which CPU this p2m was used and for which vCPU */
     uint8_t last_vcpu_ran[NR_CPUS];
+
+    /* Alternate p2m: count of vcpu's currently using this p2m. */
+    atomic_t active_vcpus;
 
     /* Choose between: host/alternate. */
     p2m_class_t p2m_class;
