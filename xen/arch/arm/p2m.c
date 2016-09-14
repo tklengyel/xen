@@ -1041,7 +1041,7 @@ int p2m_set_entry(struct p2m_domain *p2m,
         /* Always map 4k by 4k when memaccess is enabled */
         if ( unlikely(p2m->mem_access_enabled) )
             order = THIRD_ORDER;
-        if ( !(mask & ((1UL << FIRST_ORDER) - 1)) )
+        else if ( !(mask & ((1UL << FIRST_ORDER) - 1)) )
             order = FIRST_ORDER;
         else if ( !(mask & ((1UL << SECOND_ORDER) - 1)) )
             order = SECOND_ORDER;
