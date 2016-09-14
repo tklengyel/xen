@@ -191,6 +191,21 @@ void p2m_restore_state(struct vcpu *n);
 /* Print debugging/statistial info about a domain's p2m */
 void p2m_dump_info(struct domain *d);
 
+/* Insert an entry in the p2m. */
+int p2m_set_entry(struct p2m_domain *p2m,
+                  gfn_t sgfn,
+                  unsigned long todo,
+                  mfn_t smfn,
+                  p2m_type_t t,
+                  p2m_access_t a);
+
+/* Get the details of a given gfn. */
+mfn_t p2m_get_entry(struct p2m_domain *p2m,
+                    gfn_t gfn,
+                    p2m_type_t *t,
+                    p2m_access_t *a,
+                    unsigned int *page_order);
+
 /* Look up the MFN corresponding to a domain's GFN. */
 mfn_t p2m_lookup(struct domain *d, gfn_t gfn, p2m_type_t *t);
 

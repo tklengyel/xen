@@ -308,9 +308,9 @@ static int p2m_next_level(struct p2m_domain *p2m, bool read_only,
  * If the entry is not present, INVALID_MFN will be returned and the
  * page_order will be set according to the order of the invalid range.
  */
-static mfn_t p2m_get_entry(struct p2m_domain *p2m, gfn_t gfn,
-                           p2m_type_t *t, p2m_access_t *a,
-                           unsigned int *page_order)
+mfn_t p2m_get_entry(struct p2m_domain *p2m, gfn_t gfn,
+                    p2m_type_t *t, p2m_access_t *a,
+                    unsigned int *page_order)
 {
     paddr_t addr = pfn_to_paddr(gfn_x(gfn));
     unsigned int level = 0;
@@ -1000,12 +1000,12 @@ out:
     return rc;
 }
 
-static int p2m_set_entry(struct p2m_domain *p2m,
-                         gfn_t sgfn,
-                         unsigned long todo,
-                         mfn_t smfn,
-                         p2m_type_t t,
-                         p2m_access_t a)
+int p2m_set_entry(struct p2m_domain *p2m,
+                  gfn_t sgfn,
+                  unsigned long todo,
+                  mfn_t smfn,
+                  p2m_type_t t,
+                  p2m_access_t a)
 {
     int rc = 0;
 
