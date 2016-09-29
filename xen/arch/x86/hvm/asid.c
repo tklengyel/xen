@@ -124,6 +124,8 @@ bool_t hvm_asid_handle_vmenter(struct hvm_vcpu_asid *asid)
     if ( asid->generation == data->core_asid_generation )
         return 0;
 
+    gdprintk(XENLOG_ERR, "ASID generation: %lu. Core generation: %lu\n", asid->generation, data->core_asid_generation);
+
     /* If there are no free ASIDs, need to go to a new generation */
     if ( unlikely(data->next_asid > data->max_asid) )
     {

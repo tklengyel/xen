@@ -1522,6 +1522,8 @@ int arch_set_info_hvm_guest(struct vcpu *v, const vcpu_hvm_context_t *ctx)
         return -EINVAL;
     }
 
+    gprintk(XENLOG_ERR, "here\n");
+
     hvm_update_guest_cr(v, 0);
     hvm_update_guest_cr(v, 3);
     hvm_update_guest_cr(v, 4);

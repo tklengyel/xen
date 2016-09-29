@@ -1261,6 +1261,8 @@ static void vmx_handle_cd(struct vcpu *v, unsigned long value)
     {
         u64 *pat = &v->arch.hvm_vcpu.pat_cr;
 
+        gdprintk(XENLOG_ERR, "vmx_handle_cd\n");
+
         if ( value & X86_CR0_CD )
         {
             /*
@@ -1540,7 +1542,11 @@ static void vmx_update_guest_cr(struct vcpu *v, unsigned int cr)
         }
  
         __vmwrite(GUEST_CR3, v->arch.hvm_vcpu.hw_cr[3]);
-        hvm_asid_flush_vcpu(v);
+
+        if ( !v->movtocr3 ) {
+            gdprintk(XENLOG_ERR, "Flushing TLB for CR3: 0x%lx\n", v->arch.hvm_vcpu.hw_cr[3]);
+            hvm_asid_flush_vcpu(v);
+        }
         break;
     case 4:
         v->arch.hvm_vcpu.hw_cr[4] = HVM_CR4_HOST_MASK;
@@ -2502,6 +2508,10 @@ static int vmx_cr_access(unsigned long exit_qualification)
     case VMX_CONTROL_REG_ACCESS_TYPE_MOV_TO_CR: {
         unsigned long gp = VMX_CONTROL_REG_ACCESS_GPR(exit_qualification);
         unsigned long cr = VMX_CONTROL_REG_ACCESS_NUM(exit_qualification);
+
+        if ( cr == 3 )
+            curr->movtocr3 = 1;
+
         return hvm_mov_to_cr(cr, gp);
     }
     case VMX_CONTROL_REG_ACCESS_TYPE_MOV_FROM_CR: {
@@ -3257,6 +3267,7 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     unsigned long exit_qualification, exit_reason, idtv_info, intr_info = 0;
     unsigned int vector = 0, mode;
     struct vcpu *v = current;
+    v->movtocr3 = 0;
 
     __vmread(GUEST_RIP,    &regs->rip);
     __vmread(GUEST_RSP,    &regs->rsp);

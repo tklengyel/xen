@@ -80,7 +80,8 @@ void write_cr3(unsigned long cr3)
 
     t = pre_flush();
 
-    hvm_flush_guest_tlbs();
+    //gdprintk(XENLOG_ERR, "write_cr3\n");
+    //hvm_flush_guest_tlbs();
 
     write_cr4(cr4 & ~X86_CR4_PGE);
     asm volatile ( "mov %0, %%cr3" : : "r" (cr3) : "memory" );
@@ -122,7 +123,8 @@ unsigned int flush_area_local(const void *va, unsigned int flags)
             u32 t = pre_flush();
             unsigned long cr4 = read_cr4();
 
-            hvm_flush_guest_tlbs();
+            if ( flags & FLUSH_TLB_GLOBAL )
+                hvm_flush_guest_tlbs();
 
             write_cr4(cr4 & ~X86_CR4_PGE);
             barrier();

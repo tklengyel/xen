@@ -700,6 +700,7 @@ static void hap_update_cr3(struct vcpu *v, int do_locking)
 {
     v->arch.hvm_vcpu.hw_cr[3] = v->arch.hvm_vcpu.guest_cr[3];
     hvm_update_guest_cr(v, 3);
+    gdprintk(XENLOG_WARNING, "hap_update_cr3\n");
 }
 
 const struct paging_mode *
@@ -733,6 +734,8 @@ static void hap_update_paging_modes(struct vcpu *v)
         make_cr3(v, mfn_x(mmfn));
         hvm_update_host_cr3(v);
     }
+
+    gdprintk(XENLOG_WARNING, "hap_update_paging_modes\n");
 
     /* CR3 is effectively updated by a mode change. Flush ASIDs, etc. */
     hap_update_cr3(v, 0);

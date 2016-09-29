@@ -521,6 +521,7 @@ void hvm_do_resume(struct vcpu *v)
 
         if ( w->do_write.cr4 )
         {
+            gdprintk(XENLOG_ERR, "hvm_do_resume sets cr4\n");
             hvm_set_cr4(w->cr4, 0);
             w->do_write.cr4 = 0;
         }
@@ -2092,6 +2093,8 @@ int hvm_mov_to_cr(unsigned int cr, unsigned int gpr)
     HVMTRACE_LONG_2D(CR_WRITE, cr, TRC_PAR_LONG(val));
     HVM_DBG_LOG(DBG_LEVEL_1, "CR%u, value = %lx", cr, val);
 
+    gdprintk(XENLOG_ERR, "hvm_mov_to_cr: %u\n", cr);
+
     switch ( cr )
     {
     case 0:
@@ -2195,6 +2198,10 @@ static void hvm_update_cr(struct vcpu *v, unsigned int cr, unsigned long value)
 {
     v->arch.hvm_vcpu.guest_cr[cr] = value;
     nestedhvm_set_cr(v, cr, value);
+
+    if ( cr == 3 )
+        gdprintk(XENLOG_DEBUG, "hvm_update_cr\n");
+
     hvm_update_guest_cr(v, cr);
 }
 
@@ -2318,8 +2325,10 @@ int hvm_set_cr0(unsigned long value, bool_t may_defer)
     if ( (value ^ old_value) & X86_CR0_PG ) {
         if ( !nestedhvm_vmswitch_in_progress(v) && nestedhvm_vcpu_in_guestmode(v) )
             paging_update_nestedmode(v);
-        else
+        else {
+            gdprintk(XENLOG_ERR, "hvm_set_cr0 is calling paging_update_paging_modes\n");
             paging_update_paging_modes(v);
+        }
     }
 
     return X86EMUL_OKAY;
@@ -2442,8 +2451,10 @@ int hvm_set_cr4(unsigned long value, bool_t may_defer)
     {
         if ( !nestedhvm_vmswitch_in_progress(v) && nestedhvm_vcpu_in_guestmode(v) )
             paging_update_nestedmode(v);
-        else
+        else {
+            gdprintk(XENLOG_ERR, "hvm_set_cr4 is calling update_paging_modes\n");
             paging_update_paging_modes(v);
+        }
     }
 
     return X86EMUL_OKAY;
@@ -4495,6 +4506,8 @@ void hvm_vcpu_reset_state(struct vcpu *v, uint16_t cs, uint16_t ip)
 
     v->arch.hvm_vcpu.guest_cr[2] = 0;
     hvm_update_guest_cr(v, 2);
+
+    gdprintk(XENLOG_DEBUG, "reset state\n");
 
     v->arch.hvm_vcpu.guest_cr[3] = 0;
     hvm_update_guest_cr(v, 3);

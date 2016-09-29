@@ -1688,6 +1688,8 @@ void vmx_do_resume(struct vcpu *v)
          */
         v->arch.hvm_vmx.hostenv_migrated = 1;
 
+        gdprintk(XENLOG_WARNING, "SMP proc id changed to %u, reset tlb tag.\n", smp_processor_id());
+
         hvm_asid_flush_vcpu(v);
     }
 

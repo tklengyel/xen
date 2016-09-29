@@ -2077,6 +2077,7 @@ p2m_flush(struct vcpu *v, struct p2m_domain *p2m)
     vcpu_nestedhvm(v).nv_p2m = NULL;
     p2m_flush_table(p2m);
     hvm_asid_flush_vcpu(v);
+    gdprintk(XENLOG_ERR, "p2m_flush\n");
 }
 
 void

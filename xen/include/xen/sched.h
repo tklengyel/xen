@@ -141,6 +141,8 @@ struct waitqueue_vcpu;
 
 struct vcpu 
 {
+    bool            movtocr3;
+
     int              vcpu_id;
 
     int              processor;
