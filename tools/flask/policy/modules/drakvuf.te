@@ -8,7 +8,7 @@ manage_domain(drakvuf_t, drakvuf_domU_t)
 
 allow dom0_t drakvuf_domU_t:domain { setdebugging getvcpucontext setvcpucontext };
 allow dom0_t drakvuf_domU_t:domain2 { mem_access vm_event gettsc };
-allow dom0_t drakvuf_domU_t:hvm { gethvmc sethvmc getparam altp2mhvm_op };
+allow dom0_t drakvuf_domU_t:hvm { gethvmc sethvmc getparam altp2mhvm_op hvmctl };
 allow dom0_t drakvuf_domU_t:mmu { stat map_read map_write adjust pageinfo };
 allow dom0_t drakvuf_domU_t:shadow { disable };
 create_channel(dom0_t, drakvuf_domU_t, drakvuf_domU_t_channel)
@@ -16,7 +16,7 @@ allow dom0_t drakvuf_domU_t_channel:event create;
 
 allow drakvuf_t drakvuf_domU_t:domain { setdebugging getvcpucontext setvcpucontext };
 allow drakvuf_t drakvuf_domU_t:domain2 { mem_access vm_event gettsc };
-allow drakvuf_t drakvuf_domU_t:hvm { gethvmc sethvmc getparam altp2mhvm_op };
+allow drakvuf_t drakvuf_domU_t:hvm { gethvmc sethvmc getparam altp2mhvm_op hvmctl };
 allow drakvuf_t drakvuf_domU_t:mmu { stat map_read map_write adjust pageinfo };
 allow drakvuf_t drakvuf_domU_t:shadow { disable };
 create_channel(drakvuf_t, drakvuf_domU_t, drakvuf_domU_t_channel)
