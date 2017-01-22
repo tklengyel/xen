@@ -135,6 +135,11 @@ struct arch_domain
     /* altp2m: allow multiple copies of host p2m */
     bool_t altp2m_active;
     struct p2m_domain *altp2m_p2m[MAX_ALTP2M];
+
+    /* Monitor options */
+    struct {
+        uint8_t privileged_call_enabled : 1;
+    } monitor;
 }  __cacheline_aligned;
 
 struct altp2mvcpu {
