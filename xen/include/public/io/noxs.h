@@ -24,6 +24,7 @@ enum noxs_dev_type {
 	noxs_dev_none = 0,
 	noxs_dev_sysctl,
 	noxs_dev_vif,
+	noxs_dev_vbd,
 };
 typedef enum noxs_dev_type noxs_dev_type_t;
 
@@ -171,5 +172,79 @@ struct noxs_cfg_vif {
 	char bridge[IF_LEN];
 };
 typedef struct noxs_cfg_vif noxs_cfg_vif_t;
+
+
+/* Block device */
+struct vbd_be_features {
+	uint16_t max_indirect_segments;
+	uint8_t persistent:1;
+	uint8_t barrier:1;
+	uint8_t flush_cache:1;
+	uint8_t discard:1;
+};
+
+struct vbd_fe_features {
+	uint8_t persistent:1;
+};
+
+enum noxs_vbd_type {
+	noxs_vbd_type_none,
+	noxs_vbd_type_phy,
+	noxs_vbd_type_file,
+};
+typedef enum noxs_vbd_type noxs_vbd_type_t;
+
+enum noxs_vbd_mode {
+	noxs_vbd_mode_none,
+	noxs_vbd_mode_rdonly,
+	noxs_vbd_mode_rdwr,
+};
+typedef enum noxs_vbd_mode noxs_vbd_mode_t;
+
+struct noxs_ring {
+	evtchn_port_t evtchn;
+	grant_ref_t refs[0];
+};
+typedef struct noxs_ring noxs_ring_t;
+
+struct noxs_vbd_ctrl_page {
+	noxs_ctrl_hdr_t hdr;
+	struct vbd_be_features be_feat;
+
+	uint32_t major;
+	uint32_t minor;
+	noxs_vbd_type_t type;
+	noxs_vbd_mode_t mode;
+
+	uint32_t info;
+	uint64_t sectors;
+	uint64_t sector_size;
+	uint64_t sector_size_physical;
+
+	int32_t discard_enable;
+	int32_t discard_granularity;
+	int32_t discard_alignment;
+	int32_t discard_secure;
+
+	struct vbd_fe_features fe_feat;
+	char protocol[64];
+
+	int32_t max_rings;
+	int32_t max_ring_page_order;
+
+	int32_t num_rings;
+	int32_t ring_page_order;
+
+	noxs_ring_t rings_start_addr[0];
+};
+typedef struct noxs_vbd_ctrl_page noxs_vbd_ctrl_page_t;
+
+struct noxs_cfg_vbd {
+	unsigned major;
+	unsigned minor;
+	noxs_vbd_type_t type;
+	noxs_vbd_mode_t mode;
+};
+typedef struct noxs_cfg_vbd noxs_cfg_vbd_t;
 
 #endif /* XEN_PUBLIC_IO_NOXS_H_ */
