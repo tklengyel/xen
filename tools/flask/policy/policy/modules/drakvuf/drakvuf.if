@@ -64,7 +64,7 @@ define(`create_domain_common', `
 define(`vmi', `
     allow $1 $2:domain { setdebugging };
     allow $1 $2:domain2 { mem_access vm_event gettsc };
-    allow $1 $2:hvm { gethvmc sethvmc getparam altp2mhvm altp2mhvm_op };
+    allow $1 $2:hvm { gethvmc sethvmc getparam altp2mhvm altp2mhvm_op hvmctl };
     allow $1 $2:mmu { stat map_read map_write adjust pageinfo };
     allow $1 $2:shadow { disable };
     create_channel($1, $2, $2_channel)
