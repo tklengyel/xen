@@ -350,6 +350,7 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
     libxl_domain_build_info *const info = &d_config->b_info;
     libxl_ctx *ctx = libxl__gc_owner(gc);
     char *xs_domid, *con_domid;
+    bool altp2m_support = false;
     int rc;
     uint64_t size;
 
@@ -502,18 +503,29 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
     }
 #endif
 
+#if defined(__i386__) || defined(__x86_64__)
     /* Alternate p2m support on x86 is available only for PVH/HVM guests. */
-    if (info->type == LIBXL_DOMAIN_TYPE_HVM) {
+    if (info->type == LIBXL_DOMAIN_TYPE_HVM)
+        altp2m_support = true;
+#elif defined(__arm__) || defined(__aarch64__)
+    /* Alternate p2m support on ARM is available for all guests. */
+    altp2m_support = true;
+#endif
+
+    if (altp2m_support) {
         /* The config parameter "altp2m" replaces the parameter "altp2mhvm". For
-         * legacy reasons, both parameters are accepted on x86 HVM guests.
+         * legacy reasons, both parameters are accepted on x86 HVM guests (only
+         * "altp2m" is accepted on ARM guests).
          *
          * If the legacy field info->u.hvm.altp2m is set, activate altp2m.
          * Otherwise set altp2m based on the field info->altp2m. */
+#if defined(__i386__) || defined(__x86_64__)
         if (info->altp2m == LIBXL_ALTP2M_MODE_DISABLED &&
             libxl_defbool_val(info->u.hvm.altp2m))
             xc_hvm_param_set(ctx->xch, domid, HVM_PARAM_ALTP2M,
                              libxl_defbool_val(info->u.hvm.altp2m));
         else
+#endif
             xc_hvm_param_set(ctx->xch, domid, HVM_PARAM_ALTP2M,
                              info->altp2m);
     } else if (info->type == LIBXL_DOMAIN_TYPE_PVH) {
