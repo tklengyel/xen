@@ -29,6 +29,7 @@
 #include <asm/monitor.h>
 #include <asm/vm_event.h>
 #include <xsm/xsm.h>
+#include <asm/altp2m.h>
 
 /* for public/io/ring.h macros */
 #define xen_mb()   smp_mb()

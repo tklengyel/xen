@@ -1707,12 +1707,6 @@ void p2m_mem_paging_resume(struct domain *d, vm_event_response_t *rsp)
     }
 }
 
-void altp2m_check(struct vcpu *v, uint16_t idx)
-{
-    if ( altp2m_active(v->domain) )
-        p2m_switch_vcpu_altp2m_by_id(v, idx);
-}
-
 static struct p2m_domain *
 p2m_getlru_nestedp2m(struct domain *d, struct p2m_domain *p2m)
 {
