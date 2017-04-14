@@ -160,12 +160,6 @@ typedef enum {
                             (P2M_RAM_TYPES | P2M_GRANT_TYPES |  \
                              p2m_to_mask(p2m_map_foreign)))
 
-static inline
-void altp2m_check(struct vcpu *v, uint16_t idx)
-{
-    /* Not supported on ARM. */
-}
-
 /* Second stage paging setup, to be called on all CPUs */
 void setup_virt_paging(void);
 
