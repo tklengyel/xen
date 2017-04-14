@@ -161,7 +161,7 @@ typedef enum {
                              p2m_to_mask(p2m_map_foreign)))
 
 static inline
-void p2m_altp2m_check(struct vcpu *v, uint16_t idx)
+void altp2m_check(struct vcpu *v, uint16_t idx)
 {
     /* Not supported on ARM. */
 }
