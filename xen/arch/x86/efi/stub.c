@@ -1,7 +1,9 @@
+#include <xen/types.h>
 #include <xen/efi.h>
 #include <xen/errno.h>
 #include <xen/init.h>
 #include <xen/lib.h>
+#include <xen/multiboot2.h>
 #include <asm/page.h>
 #include <asm/efibind.h>
 #include <efi/efidef.h>
@@ -18,7 +20,8 @@
  */
 
 void __init noreturn efi_multiboot2(EFI_HANDLE ImageHandle,
-                                    EFI_SYSTEM_TABLE *SystemTable)
+                                    EFI_SYSTEM_TABLE *SystemTable,
+                                    multiboot2_tag_module_t *dom0_kernel)
 {
     static const CHAR16 __initconst err[] =
         L"Xen does not have EFI code build in!\r\nSystem halted!\r\n";

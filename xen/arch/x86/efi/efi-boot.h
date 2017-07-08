@@ -3,6 +3,8 @@
  * is intended to be included by common/efi/boot.c _only_, and
  * therefore can define arch specific global variables.
  */
+#include <xen/types.h>
+#include <xen/multiboot2.h>
 #include <xen/vga.h>
 #include <asm/e820.h>
 #include <asm/edd.h>
@@ -47,6 +49,7 @@ extern const struct pe_base_relocs {
 
 static void __init efi_arch_relocate_image(unsigned long delta)
 {
+#if 0
     const struct pe_base_relocs *base_relocs;
 
     for ( base_relocs = __base_relocs_start; base_relocs < __base_relocs_end; )
@@ -96,6 +99,7 @@ static void __init efi_arch_relocate_image(unsigned long delta)
         }
         base_relocs = (const void *)(base_relocs->entries + i + (i & 1));
     }
+#endif
 }
 
 extern const s32 __trampoline_rel_start[], __trampoline_rel_stop[];
@@ -670,7 +674,9 @@ static bool __init efi_arch_use_config_file(EFI_SYSTEM_TABLE *SystemTable)
 
 static void efi_arch_flush_dcache_area(const void *vaddr, UINTN size) { }
 
-void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+void __init efi_multiboot2(EFI_HANDLE ImageHandle,
+                           EFI_SYSTEM_TABLE *SystemTable,
+                           multiboot2_tag_module_t *dom0_kernel)
 {
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
     UINTN cols, gop_mode = ~0, rows;
@@ -687,6 +693,10 @@ void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         efi_arch_console_init(cols, rows);
 
     gop = efi_get_gop();
+
+    if ( dom0_kernel && dom0_kernel->mod_end > dom0_kernel->mod_start )
+        efi_shim_lock((VOID *)(unsigned long)dom0_kernel->mod_start,
+                      dom0_kernel->mod_end - dom0_kernel->mod_start);
 
     if ( gop )
         gop_mode = efi_find_gop_mode(gop, 0, 0, 0);

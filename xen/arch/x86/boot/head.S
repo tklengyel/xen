@@ -383,9 +383,13 @@ __efi64_mb2_start:
         jmp     x86_32_switch
 
 .Lefi_multiboot2_proto:
-        /* Zero EFI SystemTable and EFI ImageHandle addresses. */
+        /*
+         * Zero EFI SystemTable, EFI ImageHandle and
+         * dom0 kernel module struct addresses.
+         */
         xor     %esi,%esi
         xor     %edi,%edi
+        xor     %r14d,%r14d
 
         /* Skip Multiboot2 information fixed part. */
         lea     (MB2_fixed_sizeof+MULTIBOOT2_TAG_ALIGN-1)(%rbx),%ecx
@@ -423,6 +427,15 @@ __efi64_mb2_start:
         cmove   MB2_efi64_ih(%rcx),%rdi
         je      .Lefi_mb2_next_tag
 
+        /* Get dom0 kernel module struct address from Multiboot2 information. */
+        cmpl    $MULTIBOOT2_TAG_TYPE_MODULE,MB2_tag_type(%rcx)
+        jne     .Lefi_mb2_end
+
+        test    %r14d,%r14d
+        cmovz   %ecx,%r14d
+        jmp     .Lefi_mb2_next_tag
+
+.Lefi_mb2_end:
         /* Is it the end of Multiboot2 information? */
         cmpl    $MULTIBOOT2_TAG_TYPE_END,MB2_tag_type(%rcx)
         je      .Lrun_bs
@@ -484,9 +497,12 @@ __efi64_mb2_start:
         /* Keep the stack aligned. Do not pop a single item off it. */
         mov     (%rsp),%rdi
 
+        mov     %r14d,%edx
+
         /*
          * efi_multiboot2() is called according to System V AMD64 ABI:
-         *   - IN:  %rdi - EFI ImageHandle, %rsi - EFI SystemTable.
+         *   - IN: %rdi - EFI ImageHandle, %rsi - EFI SystemTable,
+         *         %rdx - dom0 kernel module struct address.
          */
         call    efi_multiboot2
 
