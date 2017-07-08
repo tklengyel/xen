@@ -6,12 +6,13 @@ export XEN_EXTRAVERSION ?= -unstable$(XEN_VENDORVERSION)
 export XEN_FULLVERSION   = $(XEN_VERSION).$(XEN_SUBVERSION)$(XEN_EXTRAVERSION)
 -include xen-version
 
-export XEN_WHOAMI	?= $(USER)
-export XEN_DOMAIN	?= $(shell ([ -x /bin/dnsdomainname ] && /bin/dnsdomainname) || ([ -x /bin/domainname ] && /bin/domainname || echo [unknown]))
-export XEN_BUILD_DATE	?= $(shell LC_ALL=C date)
-export XEN_BUILD_TIME	?= $(shell LC_ALL=C date +%T)
-export XEN_BUILD_HOST	?= $(shell hostname)
-export XEN_CONFIG_EXPERT ?= n
+export XEN_WHOAMI		?= $(USER)
+export XEN_DOMAIN		?= $(shell ([ -x /bin/dnsdomainname ] && /bin/dnsdomainname) || ([ -x /bin/domainname ] && /bin/domainname || echo [unknown]))
+export XEN_BUILD_DATE		?= $(shell LC_ALL=C date)
+export XEN_BUILD_TIME		?= $(shell LC_ALL=C date +%T)
+export XEN_BUILD_POSIX_TIME	?= $(shell LC_ALL=C date +%s)
+export XEN_BUILD_HOST		?= $(shell hostname)
+export XEN_CONFIG_EXPERT	?= n
 
 export BASEDIR := $(CURDIR)
 export XEN_ROOT := $(BASEDIR)/..
@@ -164,6 +165,7 @@ delete-unfresh-files:
 include/xen/compile.h: include/xen/compile.h.in .banner
 	@sed -e 's/@@date@@/$(XEN_BUILD_DATE)/g' \
 	    -e 's/@@time@@/$(XEN_BUILD_TIME)/g' \
+	    -e 's/@@posix_time@@/$(XEN_BUILD_POSIX_TIME)/g' \
 	    -e 's/@@whoami@@/$(XEN_WHOAMI)/g' \
 	    -e 's/@@domain@@/$(XEN_DOMAIN)/g' \
 	    -e 's/@@hostname@@/$(XEN_BUILD_HOST)/g' \

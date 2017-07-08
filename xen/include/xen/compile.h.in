@@ -1,5 +1,6 @@
 #define XEN_COMPILE_DATE	"@@date@@"
 #define XEN_COMPILE_TIME	"@@time@@"
+#define XEN_COMPILE_POSIX_TIME	@@posix_time@@
 #define XEN_COMPILE_BY		"@@whoami@@"
 #define XEN_COMPILE_DOMAIN	"@@domain@@"
 #define XEN_COMPILE_HOST	"@@hostname@@"
