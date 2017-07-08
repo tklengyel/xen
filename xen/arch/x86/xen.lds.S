@@ -54,7 +54,12 @@ SECTIONS
   __2M_text_start = .;         /* Start of 2M superpages, mapped RX. */
 #endif
 
-  . = __XEN_VIRT_START + XEN_IMG_OFFSET;
+  . = __XEN_VIRT_START + XEN_IMG_OFFSET - efi_pe_head_end + efi_pe_head;
+
+  .efi.pe.header : {
+       *(.efi.pe.header)
+  } :NONE
+
   _start = .;
   .text : {
         _stext = .;            /* Text and read-only data */
@@ -239,6 +244,8 @@ SECTIONS
        *(.data.rel)
        *(.data.rel.*)
        CONSTRUCTORS
+       /* PE file must end at XEN_FILE_ALIGN boundary. */
+       . = ALIGN(XEN_FILE_ALIGN);
   } :text
 
   .bss : {                     /* BSS */
@@ -263,6 +270,8 @@ SECTIONS
   . = ALIGN(PAGE_SIZE);
 #endif
   __2M_rwdata_end = .;
+
+  __pe_SizeOfImage = ALIGN(. - __image_base__, XEN_LOAD_ALIGN);
 
 #ifdef EFI
   . = ALIGN(4);
@@ -342,3 +351,8 @@ ASSERT((trampoline_end - trampoline_start) < TRAMPOLINE_SPACE - MBI_SPACE_MIN,
     "not enough room for trampoline and mbi data")
 ASSERT((wakeup_stack - wakeup_stack_start) >= WAKEUP_STACK_MIN,
     "wakeup stack too small")
+
+ASSERT(efi_pe_head_end == _start, "PE header does not end at the beginning of .text section")
+ASSERT(_start == __XEN_VIRT_START + XEN_IMG_OFFSET, ".text section begins at wrong address")
+ASSERT(IS_ALIGNED(_start,      XEN_FILE_ALIGN), "_start misaligned")
+ASSERT(IS_ALIGNED(__bss_start, XEN_FILE_ALIGN), "__bss_start misaligned")
