@@ -237,12 +237,27 @@ multiboot2_header_start:
         /* Align modules at page boundry. */
         mb2ht_init MB2_HT(MODULE_ALIGN), MB2_HT(REQUIRED)
 
+        /* The address tag. */
+        mb2ht_init MB2_HT(ADDRESS), MB2_HT(REQUIRED), \
+                   sym_offs(multiboot2_header_start), /* header_addr */ \
+                   sym_offs(start),                   /* load_addr */ \
+                   sym_offs(__bss_start),             /* load_end_addr */ \
+                   sym_offs(__2M_rwdata_end)          /* bss_end_addr */
+
         /* Load address preference. */
         mb2ht_init MB2_HT(RELOCATABLE), MB2_HT(OPTIONAL), \
                    sym_offs(start), /* Min load address. */ \
                    0xffffffff, /* The end of image max load address (4 GiB - 1). */ \
                    0x200000, /* Load address alignment (2 MiB). */ \
                    MULTIBOOT2_LOAD_PREFERENCE_HIGH
+
+        /* Multiboot2 entry point. */
+        mb2ht_init MB2_HT(ENTRY_ADDRESS), MB2_HT(REQUIRED), \
+                   sym_offs(__start)
+
+        /* EFI64 Multiboot2 entry point. */
+        mb2ht_init MB2_HT(ENTRY_ADDRESS_EFI64), MB2_HT(OPTIONAL), \
+                   sym_offs(__efi64_mb2_start)
 
         /* Console flags tag. */
         mb2ht_init MB2_HT(CONSOLE_FLAGS), MB2_HT(OPTIONAL), \
@@ -256,10 +271,6 @@ multiboot2_header_start:
 
         /* Request that ExitBootServices() not be called. */
         mb2ht_init MB2_HT(EFI_BS), MB2_HT(OPTIONAL)
-
-        /* EFI64 Multiboot2 entry point. */
-        mb2ht_init MB2_HT(ENTRY_ADDRESS_EFI64), MB2_HT(OPTIONAL), \
-                   sym_offs(__efi64_mb2_start)
 
         /* Multiboot2 header end tag. */
         mb2ht_init MB2_HT(END), MB2_HT(REQUIRED)
