@@ -195,13 +195,24 @@ ENTRY(start)
         .align 4
 multiboot1_header_start:       /*** MULTIBOOT1 HEADER ****/
 #define MULTIBOOT_HEADER_FLAGS (MULTIBOOT_HEADER_MODS_ALIGNED | \
-                                MULTIBOOT_HEADER_WANT_MEMORY)
+                                MULTIBOOT_HEADER_WANT_MEMORY | \
+                                MULTIBOOT_HEADER_HAS_ADDR)
         /* Magic number indicating a Multiboot header. */
         .long   MULTIBOOT_HEADER_MAGIC
         /* Flags to bootloader (see Multiboot spec). */
         .long   MULTIBOOT_HEADER_FLAGS
         /* Checksum: must be the negated sum of the first two fields. */
         .long   -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+        /* header_addr */
+        .long   sym_offs(multiboot1_header_start)
+        /* load_addr */
+        .long   sym_offs(start)
+        /* load_end_addr */
+        .long   sym_offs(__bss_start)
+        /* bss_end_addr */
+        .long   sym_offs(__2M_rwdata_end)
+        /* entry_addr */
+        .long   sym_offs(__start)
 multiboot1_header_end:
 
 /*** MULTIBOOT2 HEADER ****/
