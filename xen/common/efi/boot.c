@@ -124,6 +124,7 @@ static void efi_console_set_mode(void);
 static EFI_GRAPHICS_OUTPUT_PROTOCOL *efi_get_gop(void);
 static UINTN efi_find_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop,
                                UINTN cols, UINTN rows, UINTN depth);
+static void efi_shim_lock(VOID *Buffer, UINT32 Size);
 static void efi_tables(void);
 static void setup_efi_pci(void);
 static void efi_variables(void);
@@ -797,6 +798,17 @@ static UINTN __init efi_find_gop_mode(EFI_GRAPHICS_OUTPUT_PROTOCOL *gop,
     return gop_mode;
 }
 
+static void __init efi_shim_lock(VOID *Buffer, UINT32 Size)
+{
+    static EFI_GUID __initdata shim_lock_guid = SHIM_LOCK_PROTOCOL_GUID;
+    EFI_SHIM_LOCK_PROTOCOL *shim_lock;
+    EFI_STATUS status;
+
+    if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL, (void **)&shim_lock)) &&
+         (status = shim_lock->Verify(Buffer, Size)) != EFI_SUCCESS )
+        PrintErrMesg(L"Dom0 kernel image could not be verified", status);
+}
+
 static void __init efi_tables(void)
 {
     unsigned int i;
@@ -1062,13 +1074,11 @@ void EFIAPI __init noreturn
 efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
     static EFI_GUID __initdata loaded_image_guid = LOADED_IMAGE_PROTOCOL;
-    static EFI_GUID __initdata shim_lock_guid = SHIM_LOCK_PROTOCOL_GUID;
     EFI_LOADED_IMAGE *loaded_image;
     EFI_STATUS status;
     unsigned int i, argc;
     CHAR16 **argv, *file_name, *cfg_file_name = NULL, *options = NULL;
     UINTN gop_mode = ~0;
-    EFI_SHIM_LOCK_PROTOCOL *shim_lock;
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
     union string section = { NULL }, name;
     bool base_video = false;
@@ -1225,10 +1235,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         read_file(dir_handle, s2w(&name), &kernel, option_str);
         efi_bs->FreePool(name.w);
 
-        if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL,
-                        (void **)&shim_lock)) &&
-             (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
-            PrintErrMesg(L"Dom0 kernel image could not be verified", status);
+	efi_shim_lock(kernel.ptr, kernel.size);
 
         name.s = get_value(&cfg, section.s, "ramdisk");
         if ( name.s )
