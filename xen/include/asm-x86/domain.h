@@ -1,6 +1,7 @@
 #ifndef __ASM_DOMAIN_H__
 #define __ASM_DOMAIN_H__
 
+#include <xen/altp2m-common.h>
 #include <xen/mm.h>
 #include <xen/radix-tree.h>
 #include <asm/hvm/vcpu.h>
@@ -238,8 +239,6 @@ struct paging_vcpu {
 
 #define MAX_NESTEDP2M 10
 
-#define MAX_ALTP2M      10 /* arbitrary */
-#define INVALID_ALTP2M  0xffff
 #define MAX_EPTP        (PAGE_SIZE / sizeof(uint64_t))
 struct p2m_domain;
 struct time_scale {

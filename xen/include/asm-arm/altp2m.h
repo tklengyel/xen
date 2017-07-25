@@ -20,6 +20,7 @@
 #ifndef __ASM_ARM_ALTP2M_H
 #define __ASM_ARM_ALTP2M_H
 
+#include <xen/altp2m-common.h>
 #include <xen/sched.h>
 
 /* Alternate p2m on/off per domain */
