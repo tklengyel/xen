@@ -47,6 +47,17 @@ void vm_event_monitor_next_interrupt(struct vcpu *v)
     /* Not supported on ARM. */
 }
 
+void vm_event_toggle_singlestep(struct domain *d, struct vcpu *v,
+                                vm_event_response_t *rsp)
+{
+    if ( !(rsp->flags & VM_EVENT_FLAG_TOGGLE_SINGLESTEP) )
+        return;
+
+    ASSERT(atomic_read(&v->vm_event_pause_count));
+
+    v->arch.single_step = !v->arch.single_step;
+}
+
 /*
  * Local variables:
  * mode: C
