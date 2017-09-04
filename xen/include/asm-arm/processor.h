@@ -333,6 +333,8 @@
 #define HSR_EC_DATA_ABORT_LOWER_EL  0x24
 #define HSR_EC_DATA_ABORT_CURR_EL   0x25
 #ifdef CONFIG_ARM_64
+#define HSR_EC_SS_LOWER_EL          0x32
+#define HSR_EC_SS_CURR_EL           0x33
 #define HSR_EC_BRK                  0x3c
 #endif
 

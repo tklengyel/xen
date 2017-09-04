@@ -18,6 +18,7 @@ PERFCOUNTER(trap_hvc32,    "trap: 32-bit hvc")
 PERFCOUNTER(trap_smc64,    "trap: 64-bit smc")
 PERFCOUNTER(trap_hvc64,    "trap: 64-bit hvc")
 PERFCOUNTER(trap_sysreg,   "trap: sysreg access")
+PERFCOUNTER(trap_ss,       "trap: software step")
 #endif
 PERFCOUNTER(trap_iabt,     "trap: guest instr abort")
 PERFCOUNTER(trap_dabt,     "trap: guest data abort")

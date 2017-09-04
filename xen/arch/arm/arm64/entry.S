@@ -152,6 +152,8 @@ lr      .req    x30             /* link register */
 
         bl      leave_hypervisor_tail /* Disables interrupts on return */
 
+        bl      setup_single_step
+
         exit_guest \compat
 
         .endif

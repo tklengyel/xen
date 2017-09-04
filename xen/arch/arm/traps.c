@@ -166,7 +166,7 @@ void init_traps(void)
     WRITE_SYSREG((vaddr_t)hyp_traps_vector, VBAR_EL2);
 
     /* Trap Debug and Performance Monitor accesses */
-    WRITE_SYSREG(HDCR_TDRA|HDCR_TDOSA|HDCR_TDA|HDCR_TPM|HDCR_TPMCR,
+    WRITE_SYSREG(HDCR_TDRA|HDCR_TDOSA|HDCR_TDA|HDCR_TPM|HDCR_TPMCR|HDCR_TDE,
                  MDCR_EL2);
 
     /* Trap CP15 c15 used for implementation defined registers */
@@ -1334,6 +1334,20 @@ int do_bug_frame(struct cpu_user_regs *regs, vaddr_t pc)
 }
 
 #ifdef CONFIG_ARM_64
+static void do_trap_ss(struct cpu_user_regs *regs, const union hsr hsr)
+{
+    int rc = 0;
+
+    /* XXX: We do not support single-stepping of EL2, yet. */
+    BUG_ON(hyp_mode(regs));
+
+    if ( current->domain->arch.monitor.single_step_enabled )
+        rc = monitor_ss();
+
+    if ( rc != 1 )
+        inject_undef_exception(regs, hsr);
+}
+
 static void do_trap_brk(struct cpu_user_regs *regs, const union hsr hsr)
 {
     /* HCR_EL2.TGE and MDCR_EL2.TDE are not set so we never receive
@@ -2174,6 +2188,12 @@ void do_trap_guest_sync(struct cpu_user_regs *regs)
         perfc_incr(trap_dabt);
         do_trap_stage2_abort_guest(regs, hsr);
         break;
+#ifdef CONFIG_ARM_64
+    case HSR_EC_SS_LOWER_EL:
+        perfc_incr(trap_ss);
+        do_trap_ss(regs, hsr);
+        break;
+#endif
 
     default:
         gprintk(XENLOG_WARNING,
@@ -2247,6 +2267,34 @@ void do_trap_fiq(struct cpu_user_regs *regs)
 {
     enter_hypervisor_head(regs);
     gic_interrupt(regs, 1);
+}
+
+void setup_single_step(void)
+{
+    uint32_t mdscr, mdcr;
+    struct vcpu *v = current;
+    struct cpu_user_regs *regs = guest_cpu_user_regs();
+
+#define MDSCR_EL1_SS    (_AC(1,U) << 0)
+#define SPSR_EL2_SS     (_AC(1,U) << 21)
+
+    mdscr = READ_SYSREG(MDSCR_EL1);
+    mdcr = READ_SYSREG(MDCR_EL2);
+
+    if ( unlikely(v->arch.single_step) )
+    {
+        mdcr |= HDCR_TDE;
+        mdscr |= MDSCR_EL1_SS;
+        regs->cpsr |= SPSR_EL2_SS;
+    }
+    else
+    {
+        mdcr &= ~HDCR_TDE;
+        mdscr &= ~MDSCR_EL1_SS;
+    }
+
+    WRITE_SYSREG(mdscr, MDSCR_EL1);
+    WRITE_SYSREG(mdcr, MDCR_EL2);
 }
 
 void leave_hypervisor_tail(void)
