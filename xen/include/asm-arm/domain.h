@@ -217,6 +217,7 @@ struct arch_vcpu
 
     /* Alternate p2m index */
     uint16_t ap2m_idx;
+    bool single_step;
 }  __cacheline_aligned;
 
 void vcpu_show_execution_state(struct vcpu *);

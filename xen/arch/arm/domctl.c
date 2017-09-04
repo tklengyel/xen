@@ -45,6 +45,28 @@ static int handle_vuart_init(struct domain *d,
     return rc;
 }
 
+int debug_do_domctl(struct vcpu *v, int32_t op)
+{
+    int rc;
+
+    switch ( op )
+    {
+    case XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON:
+    case XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF:
+        /* XXX: check whether the cpu supports singlestepping. */
+
+        rc = 0;
+        vcpu_pause(v);
+        v->arch.single_step = (op == XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON);
+        vcpu_unpause(v); /* guest will latch new state */
+        break;
+    default:
+        rc = -ENOSYS;
+    }
+
+    return rc;
+}
+
 long arch_do_domctl(struct xen_domctl *domctl, struct domain *d,
                     XEN_GUEST_HANDLE_PARAM(xen_domctl_t) u_domctl)
 {
@@ -138,6 +160,19 @@ long arch_do_domctl(struct xen_domctl *domctl, struct domain *d,
         vgic_free_virq(d, virq);
 
         return 0;
+    }
+    case XEN_DOMCTL_debug_op:
+    {
+        struct vcpu *v;
+
+        if ( (domctl->u.debug_op.vcpu >= d->max_vcpus) ||
+             ((v = d->vcpu[domctl->u.debug_op.vcpu]) == NULL) )
+            return -EINVAL;
+
+        if ( (v == current) )
+            return -EINVAL;
+
+        return debug_do_domctl(v, domctl->u.debug_op.op);
     }
 
     case XEN_DOMCTL_disable_migrate:
