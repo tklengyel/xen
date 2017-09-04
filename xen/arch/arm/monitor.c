@@ -32,6 +32,20 @@ int arch_monitor_domctl_event(struct domain *d,
 
     switch ( mop->event )
     {
+    case XEN_DOMCTL_MONITOR_EVENT_SINGLESTEP:
+    {
+        bool old_status = ad->monitor.single_step_enabled;
+
+        if ( unlikely(old_status == requested_status) )
+            return -EEXIST;
+
+        domain_pause(d);
+        ad->monitor.single_step_enabled = requested_status;
+        domain_unpause(d);
+
+        break;
+    }
+
     case XEN_DOMCTL_MONITOR_EVENT_PRIVILEGED_CALL:
     {
         bool old_status = ad->monitor.privileged_call_enabled;
@@ -61,6 +75,15 @@ int monitor_smc(void)
 {
     vm_event_request_t req = {
         .reason = VM_EVENT_REASON_PRIVILEGED_CALL
+    };
+
+    return monitor_traps(current, 1, &req);
+}
+
+int monitor_ss(void)
+{
+    vm_event_request_t req = {
+        .reason = VM_EVENT_REASON_SINGLESTEP,
     };
 
     return monitor_traps(current, 1, &req);

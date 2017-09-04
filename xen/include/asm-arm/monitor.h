@@ -57,11 +57,14 @@ static inline uint32_t arch_monitor_get_capabilities(struct domain *d)
 {
     uint32_t capabilities = 0;
 
-    capabilities = (1U << XEN_DOMCTL_MONITOR_EVENT_GUEST_REQUEST |
+    capabilities = (1U << XEN_DOMCTL_MONITOR_EVENT_SINGLESTEP |
+                    1U << XEN_DOMCTL_MONITOR_EVENT_GUEST_REQUEST |
                     1U << XEN_DOMCTL_MONITOR_EVENT_PRIVILEGED_CALL);
 
     return capabilities;
 }
+
+int monitor_ss(void);
 
 int monitor_smc(void);
 
