@@ -140,6 +140,19 @@ config XSM_POLICY
 
 	  If unsure, say Y.
 
+config XSM_ALLOW_BOOTLOADER_POLICY
+	bool "Allow using bootloader provided policy"
+	default y
+	depends on XSM_POLICY
+	---help---
+	  Set this option to 'Y' to allow the hypervisor to use the security
+	  policy provided by the bootloader and use the built-in policy only
+	  if there was no policy provided. If this option is set to 'N' the
+	  hypervisor will only use the built-in policy and ignore the policy
+	  provided by the bootloader.
+
+	  If unsure, say Y.
+
 config LATE_HWDOM
 	bool "Dedicated hardware domain"
 	default n
