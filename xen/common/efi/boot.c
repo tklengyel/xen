@@ -46,8 +46,17 @@ typedef EFI_STATUS
     IN VOID *Buffer,
     IN UINT32 Size);
 
+typedef EFI_STATUS
+(/* _not_ EFIAPI */ *EFI_SHIM_LOCK_MEASURE) (
+    IN VOID *Buffer,
+    IN UINT32 Size,
+    IN UINT8 Pcr);
+
 typedef struct {
     EFI_SHIM_LOCK_VERIFY Verify;
+    void* Hash;
+    void* Context;
+    EFI_SHIM_LOCK_MEASURE Measure;
 } EFI_SHIM_LOCK_PROTOCOL;
 
 struct _EFI_APPLE_PROPERTIES;
@@ -1068,7 +1077,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     unsigned int i, argc;
     CHAR16 **argv, *file_name, *cfg_file_name = NULL, *options = NULL;
     UINTN gop_mode = ~0;
-    EFI_SHIM_LOCK_PROTOCOL *shim_lock;
+    EFI_SHIM_LOCK_PROTOCOL *shim_lock = NULL;
     EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
     union string section = { NULL }, name;
     bool base_video = false;
@@ -1188,6 +1197,13 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         }
         else if ( !read_file(dir_handle, cfg_file_name, &cfg, NULL) )
             blexit(L"Configuration file not found.");
+
+        efi_bs->LocateProtocol(&shim_lock_guid, NULL, (void **)&shim_lock);
+
+        if ( shim_lock &&
+            (status = shim_lock->Measure(cfg.ptr, cfg.size, 8)) != EFI_SUCCESS )
+                PrintErrMesg(L"Configuration file could not be measured", status);
+
         pre_parse(&cfg);
 
         if ( section.w )
@@ -1225,9 +1241,8 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         read_file(dir_handle, s2w(&name), &kernel, option_str);
         efi_bs->FreePool(name.w);
 
-        if ( !EFI_ERROR(efi_bs->LocateProtocol(&shim_lock_guid, NULL,
-                        (void **)&shim_lock)) &&
-             (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
+        if ( shim_lock &&
+            (status = shim_lock->Verify(kernel.ptr, kernel.size)) != EFI_SUCCESS )
             PrintErrMesg(L"Dom0 kernel image could not be verified", status);
 
         name.s = get_value(&cfg, section.s, "ramdisk");
@@ -1235,6 +1250,11 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         {
             read_file(dir_handle, s2w(&name), &ramdisk, NULL);
             efi_bs->FreePool(name.w);
+
+            if ( shim_lock &&
+                (status = shim_lock->Measure(ramdisk.ptr, ramdisk.size, 8))
+                 != EFI_SUCCESS )
+                    PrintErrMesg(L"ramdisk could not be measured", status);
         }
 
         name.s = get_value(&cfg, section.s, "xsm");
@@ -1242,6 +1262,11 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         {
             read_file(dir_handle, s2w(&name), &xsm, NULL);
             efi_bs->FreePool(name.w);
+
+            if ( shim_lock &&
+                (status = shim_lock->Measure(xsm.ptr, xsm.size, 8))
+                 != EFI_SUCCESS)
+                    PrintErrMesg(L"XSM policy could not be measured", status);
         }
 
         name.s = get_value(&cfg, section.s, "options");
