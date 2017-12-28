@@ -88,6 +88,16 @@ typedef struct _EFI_APPLE_PROPERTIES {
     EFI_APPLE_PROPERTIES_GETALL GetAll;
 } EFI_APPLE_PROPERTIES;
 
+typedef struct _EFI_LOAD_OPTION {
+    UINT32 Attributes;
+    UINT16 FilePathListLength;
+    CHAR16 Description[];
+} EFI_LOAD_OPTION;
+
+#define LOAD_OPTION_ACTIVE              0x00000001
+#define LOAD_OPTION_FORCE_RECONNECT     0x00000002
+#define LOAD_OPTION_HIDDEN              0x00000008
+
 union string {
     CHAR16 *w;
     char *s;
@@ -375,12 +385,39 @@ static void __init PrintErrMesg(const CHAR16 *mesg, EFI_STATUS ErrCode)
 
 static unsigned int __init get_argv(unsigned int argc, CHAR16 **argv,
                                     CHAR16 *cmdline, UINTN cmdsize,
-                                    CHAR16 **options)
+                                    CHAR16 **options, bool *elo_active)
 {
     CHAR16 *ptr = (CHAR16 *)(argv + argc + 1), *prev = NULL;
     bool prev_sep = true;
 
-    for ( ; cmdsize > sizeof(*cmdline) && *cmdline;
+    if ( cmdsize > sizeof(EFI_LOAD_OPTION) &&
+         *(CHAR16 *)((void *)cmdline + cmdsize - sizeof(*cmdline)) != L'\0' )
+    {
+        const EFI_LOAD_OPTION *elo = (const EFI_LOAD_OPTION *)cmdline;
+
+        /* The absolute minimum the size of the buffer it needs to be */
+        size_t size_check = offsetof(EFI_LOAD_OPTION, Description[1]) +
+                            elo->FilePathListLength;
+
+        if ( (elo->Attributes & LOAD_OPTION_ACTIVE) && size_check < cmdsize )
+        {
+            const CHAR16 *desc = elo->Description;
+            size_t desc_length = 0;
+
+            /* Find Description string length in its possible space */
+            while ( desc_length < cmdsize - size_check && *desc++ != L'\0')
+                desc_length += sizeof(*desc);
+
+            if ( size_check + desc_length < cmdsize )
+            {
+                *elo_active = true;
+                cmdline = (void *)cmdline + size_check + desc_length;
+                cmdsize = cmdsize - size_check - desc_length;
+            }
+        }
+    }
+
+    for ( ; cmdsize >= sizeof(*cmdline) && *cmdline;
             cmdsize -= sizeof(*cmdline), ++cmdline )
     {
         bool cur_sep = *cmdline == L' ' || *cmdline == L'\t';
@@ -1073,7 +1110,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     union string section = { NULL }, name;
     bool base_video = false;
     char *option_str;
-    bool use_cfg_file;
+    bool use_cfg_file, elo_active = 0;
 
     __set_bit(EFI_BOOT, &efi_flags);
     __set_bit(EFI_LOADER, &efi_flags);
@@ -1096,17 +1133,17 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     if ( use_cfg_file )
     {
         argc = get_argv(0, NULL, loaded_image->LoadOptions,
-                        loaded_image->LoadOptionsSize, NULL);
+                        loaded_image->LoadOptionsSize, NULL, &elo_active);
         if ( argc > 0 &&
              efi_bs->AllocatePool(EfiLoaderData,
                                   (argc + 1) * sizeof(*argv) +
                                       loaded_image->LoadOptionsSize,
                                   (void **)&argv) == EFI_SUCCESS )
             get_argv(argc, argv, loaded_image->LoadOptions,
-                     loaded_image->LoadOptionsSize, &options);
+                     loaded_image->LoadOptionsSize, &options, &elo_active);
         else
             argc = 0;
-        for ( i = 1; i < argc; ++i )
+        for ( i = !elo_active; i < argc; ++i )
         {
             CHAR16 *ptr = argv[i];
 
