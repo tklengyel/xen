@@ -1639,6 +1639,26 @@ void __init setup_virt_paging(void)
 }
 
 /*
+ * This function allows to translate guest virtual into guest physical
+ * addresses for a given p2m view.
+ */
+int p2m_gva_to_ipa(struct p2m_domain *p2m, vaddr_t gva, paddr_t *ipa,
+                   unsigned int flags)
+{
+    int rc;
+    unsigned long irq_flags = 0;
+    uint64_t ovttbr = READ_SYSREG64(VTTBR_EL2);
+
+    p2m_switch_vttbr_and_get_flags(ovttbr, p2m->vttbr, irq_flags);
+
+    rc = gva_to_ipa(gva, ipa, flags);
+
+    p2m_restore_vttbr_and_set_flags(ovttbr, irq_flags);
+
+    return rc;
+}
+
+/*
  * Local variables:
  * mode: C
  * c-file-style: "BSD"

@@ -389,6 +389,10 @@ static inline int set_foreign_p2m_entry(struct domain *d, unsigned long gfn,
     return -EOPNOTSUPP;
 }
 
+/* Translate gva into ipa based on the VTTBR of the given p2m. */
+int p2m_gva_to_ipa(struct p2m_domain *p2m, vaddr_t gva, paddr_t *ipa,
+                   unsigned int flags);
+
 #endif /* _XEN_P2M_H */
 
 /*
