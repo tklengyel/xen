@@ -191,6 +191,32 @@ void efi_reset_system(bool warm)
     printk(XENLOG_WARNING "EFI: could not reset system (%#lx)\n", status);
 }
 
+bool efi_secureboot_enabled(void)
+{
+    EFI_GUID efi_gv = EFI_GLOBAL_VARIABLE;
+    UINT8 SecureBoot = 0, SetupMode = 0;
+    UINTN DataSize = sizeof(SecureBoot);
+    EFI_STATUS efi_status;
+
+    efi_status = efi_rs->GetVariable(L"SecureBoot", &efi_gv, NULL,
+                                     &DataSize, &SecureBoot);
+    if ( EFI_ERROR(efi_status) )
+        return false;
+
+    if ( !SecureBoot )
+        return false;
+
+    efi_status = efi_rs->GetVariable(L"SetupMode", &efi_gv, NULL,
+                                     &DataSize, &SetupMode);
+    if ( EFI_ERROR(efi_status) )
+        return false;
+
+    if ( SetupMode )
+        return false;
+
+    return true;
+}
+
 #endif /* CONFIG_ARM */
 #endif
 
