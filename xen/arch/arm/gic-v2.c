@@ -200,7 +200,9 @@ static void gicv2_restore_state(const struct vcpu *v)
 
     writel_gich(v->arch.gic.v2.apr, GICH_APR);
     writel_gich(v->arch.gic.v2.vmcr, GICH_VMCR);
-    writel_gich(GICH_HCR_EN, GICH_HCR);
+
+    if ( !unlikely(v->arch.single_step) )
+        writel_gich(GICH_HCR_EN, GICH_HCR);
 }
 
 static void gicv2_dump_state(const struct vcpu *v)
