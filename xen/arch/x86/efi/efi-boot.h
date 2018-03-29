@@ -8,16 +8,43 @@
 #include <asm/edd.h>
 #include <asm/msr.h>
 #include <asm/processor.h>
+#include <xen/libelf.h>
+#include <xen/multiboot2.h>
+#include <acpi/acconfig.h>
+#include <acpi/actbl.h>
 
 static struct file __initdata ucode;
+static struct file __initdata tboot_file;
+static u32 __initdata tboot_entry;
+static CHAR16* __initdata xen_self_filename;
 static multiboot_info_t __initdata mbi = {
     .flags = MBI_MODULES | MBI_LOADERNAME
 };
+
+static u64 __initdata mbi2_data[0x1000];
+
+#define MULTIBOOT2_TAG_TYPE_XENEFI 0x58454301
+typedef struct {
+    u32 type;
+    u32 size;
+    unsigned int efi_version, efi_fw_revision;
+    struct xen_vga_console_info vga_console_info;
+    const void* efi_ct;
+    unsigned int efi_num_ct;
+    UINTN efi_memmap_size;
+    UINTN efi_mdesc_size;
+    void* efi_memmap;
+    const void* efi_rs;
+    const struct efi_pci_rom *efi_pci_roms;
+    const CHAR16* efi_fw_vendor;
+} multiboot2_tag_xenefi_t;
+
 /*
  * The array size needs to be one larger than the number of modules we
  * support - see __start_xen().
  */
-static module_t __initdata mb_modules[5];
+#define MB_MAX_MODULES 30
+static module_t __initdata mb_modules[MB_MAX_MODULES + 1];
 
 static void __init edd_put_string(u8 *dst, size_t n, const char *src)
 {
@@ -212,6 +239,215 @@ static void __init efi_arch_process_memory_map(EFI_SYSTEM_TABLE *SystemTable,
 
 }
 
+static void __init mbi2_init(void)
+{
+    multiboot2_fixed_t *hdr = (void*)mbi2_data;
+    hdr->total_size = sizeof(*hdr);
+    hdr->reserved = 0;
+}
+
+static void* __init mbi2_add_entry(size_t size)
+{
+    multiboot2_fixed_t *hdr = (void*)mbi2_data;
+    u32 offset = hdr->total_size;
+    multiboot2_tag_t *tag = offset + (void*)mbi2_data;
+
+    size = (size + 7) & ~7;
+    hdr->total_size += size;
+    tag->size = size;
+
+    return tag;
+}
+
+static u32 __init setup_tboot_mbi(void)
+{
+    int i;
+    u32 len;
+    multiboot2_tag_string_t *tag_str;
+    multiboot2_tag_module_t *module;
+    multiboot2_tag_mmap_t *mmap;
+    multiboot2_tag_xenefi_t *xenmbi;
+    void* str;
+
+    /* We construct a multiboot2 header for TBOOT: */
+    mbi2_init();
+
+    /* Command line */
+    str = (void*)(u64)mbi.cmdline;
+    len = strlen(str) + 1;
+    tag_str = mbi2_add_entry(sizeof(*tag_str) + len);
+    tag_str->type = MULTIBOOT2_TAG_TYPE_CMDLINE;
+    memcpy(tag_str->string, str, len);
+
+    /* Memory map */
+    len = e820_raw.nr_map * sizeof(multiboot2_memory_map_t);
+    mmap = mbi2_add_entry(sizeof(*mmap) + len);
+    mmap->type = MULTIBOOT2_TAG_TYPE_MMAP;
+    mmap->entry_size = sizeof(multiboot2_memory_map_t);
+    mmap->entry_version = 0;
+
+    for(i = 0; i < e820_raw.nr_map; i++) {
+        mmap->entries[i].addr = e820_raw.map[i].addr;
+        mmap->entries[i].len = e820_raw.map[i].size;
+        mmap->entries[i].type = e820_raw.map[i].type;
+        mmap->entries[i].zero = 0;
+    }
+
+    /* Modules */
+    for(i=0; i < mbi.mods_count; i++) {
+        str = (void*)(u64)mb_modules[i].string;
+        len = strlen(str) + 1;
+        module = mbi2_add_entry(sizeof(*module) + len);
+        module->type = MULTIBOOT2_TAG_TYPE_MODULE;
+        module->mod_start = mb_modules[i].mod_start << PAGE_SHIFT;
+        module->mod_end = module->mod_start + mb_modules[i].mod_end;
+        memcpy(module->cmdline, str, len + 1);
+    }
+
+    /* ACPI Root System Descriptor Pointer */
+    if ( efi.acpi20 ) {
+        len = sizeof(struct acpi_table_rsdp);
+        tag_str = mbi2_add_entry(sizeof(*tag_str) + len);
+        tag_str->type = MULTIBOOT2_TAG_TYPE_ACPI_NEW;
+        memcpy(tag_str->string, (void*)efi.acpi20, len);
+    }
+
+    if ( efi.acpi ) {
+        len = ACPI_RSDP_REV0_SIZE;
+        tag_str = mbi2_add_entry(sizeof(*tag_str) + len);
+        tag_str->type = MULTIBOOT2_TAG_TYPE_ACPI_OLD;
+        memcpy(tag_str->string, (void*)efi.acpi, len);
+    }
+
+    /* Other variables to pass to post-SINIT Xen */
+    xenmbi = mbi2_add_entry(sizeof(*xenmbi));
+    xenmbi->type = MULTIBOOT2_TAG_TYPE_XENEFI;
+
+    xenmbi->efi_version = efi_version;
+    xenmbi->efi_fw_revision = efi_fw_revision;
+    xenmbi->vga_console_info = vga_console_info;
+    xenmbi->efi_ct = efi_ct;
+    xenmbi->efi_num_ct = efi_num_ct;
+    xenmbi->efi_memmap_size = efi_memmap_size;
+    xenmbi->efi_mdesc_size = efi_mdesc_size;
+    xenmbi->efi_memmap = efi_memmap;
+    xenmbi->efi_rs = efi_rs;
+    xenmbi->efi_pci_roms = efi_pci_roms;
+    xenmbi->efi_fw_vendor = efi_fw_vendor;
+
+    /* Empty */
+    tag_str = mbi2_add_entry(sizeof(*tag_str));
+    tag_str->type = MULTIBOOT2_TAG_TYPE_END;
+
+    return (u64)mbi2_data;
+}
+
+static void __init read_tboot_mbi(void* data)
+{
+    multiboot2_fixed_t *fixed_hdr = data;
+    multiboot2_tag_t *tag;
+    unsigned int i;
+
+    /* Copy the info inside Xen's address space so that any pointers inside the
+     * structure are accessible in __start_xen where only memory <16MB and Xen
+     * itself are present in the directmap.
+     */
+    memcpy(mbi2_data, data, fixed_hdr->total_size);
+    data = mbi2_data;
+
+    data += sizeof(*fixed_hdr);
+    tag = data;
+
+    mbi.mods_addr = __pa(mb_modules);
+    mbi.boot_loader_name = __pa("TBOOT");
+
+    while ( 1 )
+    {
+        multiboot2_tag_string_t *tag_str = data;
+        multiboot2_tag_module_t *module = data;
+        multiboot2_tag_mmap_t *mmap = data;
+        multiboot2_tag_xenefi_t *xenmbi = data;
+
+        switch ( tag->type )
+        {
+        case MULTIBOOT2_TAG_TYPE_MMAP:
+            e820_raw.nr_map = (mmap->size - sizeof(*mmap)) / sizeof(mmap->entries[0]);
+            for ( i = 0; i < e820_raw.nr_map; i++ )
+            {
+                e820_raw.map[i].addr = mmap->entries[i].addr;
+                e820_raw.map[i].size = mmap->entries[i].len;
+                e820_raw.map[i].type = mmap->entries[i].type;
+            }
+            break;
+        case MULTIBOOT2_TAG_TYPE_CMDLINE:
+            mbi.cmdline = __pa(tag_str->string);
+            mbi.flags |= MBI_CMDLINE;
+            break;
+        case MULTIBOOT2_TAG_TYPE_MODULE:
+            /* Xen's mb_modules format assumes that modules that are aligned to
+             * page boundaries, but tboot doesn't verify that while hashing.
+             */
+            if ( module->mod_start & (PAGE_SIZE - 1) )
+                break;
+            if ( mbi.mods_count >= MB_MAX_MODULES )
+                break;
+            mb_modules[mbi.mods_count].mod_start = module->mod_start >> PAGE_SHIFT;
+            mb_modules[mbi.mods_count].mod_end = module->mod_end - module->mod_start;
+            mb_modules[mbi.mods_count].string = __pa(module->cmdline);
+            mbi.mods_count++;
+            break;
+        case MULTIBOOT2_TAG_TYPE_ACPI_OLD:
+            /* We could verify that TBOOT and Xen both used the same ACPI
+             * tables, but tboot_parse_dmar_table implies it won't matter since
+             * important values are fixed up from the TXT heap and we can't
+             * validate everything anyway.
+             */
+            /* memcmp(efi.acpi, tag_str->string) */
+            break;
+        case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
+            /* memcmp(efi.acpi20, tag_str->string) */
+            break;
+        case MULTIBOOT2_TAG_TYPE_XENEFI:
+            if ( xenmbi->size != sizeof(*xenmbi) )
+                return;
+
+            /* These are integer fields that mostly don't need validation */
+            efi_version = xenmbi->efi_version;
+            efi_fw_revision = xenmbi->efi_fw_revision;
+            vga_console_info = xenmbi->vga_console_info;
+
+            /* The EFI configuration table is parsed by Xen in efi_tables()
+             * and is also used by Linux to find ACPI tables.
+             */
+            efi_ct = xenmbi->efi_ct;
+            efi_num_ct = xenmbi->efi_num_ct;
+
+            /* This EFI memory map is the pre-validation source of the e820 map
+             * that will be parsed in read_tboot_mbi.  The only use for the old
+             * copy is to see the EFI memory types which have more granularity
+             * than the e820 memory types, or to allow EFI runtime services to
+             * work as expected.  While the table is exposed by a platform
+             * hypercall, Linux does not use it.
+             */
+            efi_memmap_size = xenmbi->efi_memmap_size;
+            efi_mdesc_size = xenmbi->efi_mdesc_size;
+            efi_memmap = xenmbi->efi_memmap;
+
+            efi_rs = xenmbi->efi_rs;
+
+            /* Disabled until needed */
+            /* efi_pci_roms = xenmbi->efi_pci_roms; */
+            efi_fw_vendor = xenmbi->efi_fw_vendor;
+
+            break;
+        case MULTIBOOT2_TAG_TYPE_END:
+            return;
+        }
+        data += ((tag->size + 7) & ~7);
+        tag = data;
+    }
+}
+
 static void *__init efi_arch_allocate_mmap_buffer(UINTN map_size)
 {
     return ebmalloc(map_size);
@@ -227,12 +463,56 @@ static void __init efi_arch_pre_exit_boot(void)
     }
 }
 
-static void __init noreturn efi_arch_post_exit_boot(void)
+static void __init noreturn do_sinit(void)
+{
+    u32 mbi_addr = setup_tboot_mbi();
+
+    asm volatile(
+        "cli\n"
+
+        // We need to use Xen's GDT to switch back to 32-bit mode
+        "lgdt   gdt_descr(%%rip)\n"
+
+        // this push and call are consumed by lretq, producing a mov-to-cs
+        "pushq  %[cs]\n"
+        "call   1f\n"
+        ".code32\n"
+
+        // Disable paging; we are identity mapped
+        "mov    %[cr0], %%eax\n"
+        "mov    %%eax, %%cr0\n"
+
+        // Clear LME bit of the EFER MSR
+        "movl   %[efer], %%ecx\n"
+        "rdmsr\n"
+        "and    %[lme_mask], %%eax\n"
+        "wrmsr\n"
+
+        // Set up arguments (ebx already set)
+        "movl   %[mb_magic], %%eax\n"
+
+        // Jump to tboot's entry point; it will return control to the copy of
+        // xen.efi passed via its first multiboot argument
+        "jmp *%%esi\n"
+
+        ".code64\n"
+        "1: lretq\n"
+        ::
+         [cs] "i" (__HYPERVISOR_CS32),
+         [cr0] "i" (X86_CR0_PE | X86_CR0_MP | X86_CR0_ET | X86_CR0_NE),
+         [efer] "i" (MSR_EFER),
+         [lme_mask] "i" (~EFER_LME),
+         [mb_magic] "i" (MULTIBOOT2_BOOTLOADER_MAGIC),
+         "b" (mbi_addr),
+         "S" (tboot_entry)
+        : "memory"
+    );
+    unreachable();
+}
+
+static void __init noreturn enter_xen_context(unsigned long mbi_p, unsigned long cr3)
 {
     u64 cr4 = XEN_MINIMAL_CR4 & ~X86_CR4_PGE, efer;
-
-    efi_arch_relocate_image(__XEN_VIRT_START - xen_phys_start);
-    memcpy((void *)trampoline_phys, trampoline_start, cfg.size);
 
     /* Set system registers and transfer control. */
     asm volatile("pushq $0\n\tpopfq");
@@ -262,22 +542,35 @@ static void __init noreturn efi_arch_post_exit_boot(void)
                    "lretq  %[stkoff]-16"
                    : [rip] "=&r" (efer/* any dead 64-bit variable */),
                      [cr4] "+&r" (cr4)
-                   : [cr3] "r" (idle_pg_table),
+                   : [cr3] "r" (cr3),
                      [cs] "ir" (__HYPERVISOR_CS),
                      [ds] "r" (__HYPERVISOR_DS),
                      [stkoff] "i" (STACK_SIZE - sizeof(struct cpu_info)),
-                     "D" (&mbi)
+                     "D" (mbi_p)
                    : "memory" );
     for( ; ; ); /* not reached */
+}
+
+static void __init noreturn efi_arch_post_exit_boot(void)
+{
+    if ( tboot_file.size )
+        do_sinit();
+
+    efi_arch_relocate_image(__XEN_VIRT_START - xen_phys_start);
+    memcpy((void *)trampoline_phys, trampoline_start, cfg.size);
+
+    enter_xen_context((unsigned long)&mbi, (unsigned long)idle_pg_table);
 }
 
 static void __init efi_arch_cfg_file_early(EFI_FILE_HANDLE dir_handle, char *section)
 {
 }
 
-static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *section)
+static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *section,
+                                          EFI_SHIM_LOCK_PROTOCOL *shim_lock)
 {
     union string name;
+    EFI_STATUS status;
 
     name.s = get_value(&cfg, section, "ucode");
     if ( !name.s )
@@ -289,6 +582,104 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
         read_file(dir_handle, s2w(&name), &ucode, NULL);
         efi_bs->FreePool(name.w);
     }
+
+    name.s = get_value(&cfg, section, "tboot");
+    if ( !name.s )
+        name.s = get_value(&cfg, "global", "tboot");
+    if ( name.s )
+    {
+        struct elf_binary elf;
+        struct file xen_self;
+        module_t tmp;
+        u32 tboot_cmdline;
+        char *option_str = split_string(name.s);
+
+        read_file(dir_handle, s2w(&name), &tboot_file, option_str);
+        efi_bs->FreePool(name.w);
+
+        /* tboot is not yet SecureBoot compatible (it's still in ELF format) */
+        if ( shim_lock &&
+            (status = shim_lock->Measure(tboot_file.ptr, tboot_file.size, 4))
+            != EFI_SUCCESS )
+                PrintErrMesg(L"tboot could not be measured", status);
+
+        // Remove tboot from the mb_modules list; save its cmdline
+        mbi.mods_count--;
+        tboot_cmdline = mb_modules[mbi.mods_count].string;
+
+        if ( elf_init(&elf, tboot_file.ptr, tboot_file.size) ) {
+            PrintStr(L"Could init tboot ELF parsing.\r\n");
+            tboot_file.size = 0;
+            return;
+        }
+        elf_parse_binary(&elf);
+
+        tboot_entry = elf_uval(&elf, elf.ehdr, e_entry);
+
+        // XXX tboot must be loaded at a constant physical address.
+        // Check if it's free in the e820 and error out if not?
+        elf.dest_base = (void*)elf.pstart;
+        elf.dest_size = elf.pend - elf.pstart;
+
+        if ( elf_load_binary_raw(&elf) ) {
+            PrintStr(L"Could not lay out tboot in memory.\r\n");
+            tboot_file.size = 0;
+            return;
+        }
+
+        // Free the ELF binary for tboot now that it's been relocated
+        efi_bs->FreePages(tboot_file.addr, PFN_UP(tboot_file.size));
+
+        // Read in xen.efi and then move it to the first module slot
+        read_file(dir_handle, xen_self_filename, &xen_self, NULL);
+
+        if ( shim_lock )
+        {
+            if ( efi_secureboot_enabled() )
+            {
+                if ( (status = shim_lock->Verify(xen_self.ptr, xen_self.size))
+                    != EFI_SUCCESS )
+                    PrintErrMesg(L"Second copy of Xen couldn't be verified", status);
+            }
+            else
+            {
+                if ( (status = shim_lock->Measure(xen_self.ptr, xen_self.size, 4))
+                    != EFI_SUCCESS )
+                    PrintErrMesg(L"Second copy of Xen couldn't be measured", status);
+            }
+        }
+
+        tmp = mb_modules[mbi.mods_count - 1];
+        memmove(&mb_modules[1], &mb_modules[0], (mbi.mods_count - 1)*sizeof(mb_modules[0]));
+
+        // Move our command line to the module, and replace it with tboot's
+        tmp.string = mbi.cmdline;
+        mbi.cmdline = tboot_cmdline;
+
+        mb_modules[0] = tmp;
+    }
+
+    name.s = get_value(&cfg, section, "sinit");
+    if ( !name.s )
+        name.s = get_value(&cfg, "global", "sinit");
+    while ( name.s && mbi.mods_count < MB_MAX_MODULES )
+    {
+        struct file sinit;
+        char* next_name = split_string(name.s);
+        read_file(dir_handle, s2w(&name), &sinit, NULL);
+        efi_bs->FreePool(name.w);
+        name.s = next_name;
+    }
+}
+
+static void __init efi_arch_handle_xen_filename(EFI_FILE_HANDLE dir_handle, CHAR16 *file_name)
+{
+    size_t len = (wstrlen(file_name) + 1) * sizeof(*file_name);
+    if ( efi_bs->AllocatePool(EfiLoaderData, len,
+                              (void**)&xen_self_filename) != EFI_SUCCESS )
+        return;
+
+    memcpy(xen_self_filename, file_name, len);
 }
 
 static void __init efi_arch_handle_cmdline(CHAR16 *image_name,
@@ -561,6 +952,10 @@ static void __init efi_arch_memory_setup(void)
     unsigned int i;
     EFI_STATUS status;
 
+    /* Don't allocate if we are going to relaunch ourselves */
+    if ( tboot_file.size )
+        return;
+
     /* Allocate space for trampoline (in first Mb). */
     cfg.addr = 0x100000;
 
@@ -707,6 +1102,146 @@ void __init efi_multiboot2(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable
         efi_set_gop_mode(gop, gop_mode);
 
     efi_exit_boot(ImageHandle, SystemTable);
+}
+
+static void __init relocate_pagetables_only(void)
+{
+    u64 *ptr;
+    unsigned int i;
+
+    /* Instead of walking the PE relocation tables, rely on the fact that page
+     * tables have a well-known structure and relocate all present entries.
+     */
+    for ( ptr = (void *)__page_tables_start; ptr != __page_tables_end; ptr++)
+    {
+        if ( !(*ptr & _PAGE_PRESENT) )
+            continue;
+
+        *ptr += xen_phys_start;
+    }
+
+    /* The above loop also adjusted l2_identmap, but that mostly contains a 1:1
+     * mapping that should not have been relocated.  The first entry of that
+     * table is already correct; re-generate the rest now.
+     */
+    for ( i = 1; i < 8; i++ )
+    {
+        paddr_t addr = i << L2_PAGETABLE_SHIFT;
+        l2_identmap[i] = l2e_from_paddr(addr, PAGE_HYPERVISOR|_PAGE_PSE);
+    }
+
+    /* Map 16MB starting at xen_phys_start, as expected by __start_xen */
+    for ( i = 0; i < 8; i++ )
+    {
+        paddr_t addr = (i << L2_PAGETABLE_SHIFT) + xen_phys_start;
+        unsigned int slot = addr >> L2_PAGETABLE_SHIFT;
+        l2_identmap[slot] = l2e_from_paddr(addr, PAGE_HYPERVISOR|_PAGE_PSE);
+    }
+}
+
+static void __init relocate_trampoline_e820(void)
+{
+    unsigned long trampoline_size, trampoline_addr;
+    unsigned int i;
+
+    /* Allocate trampoline from memory below the legacy video buffers at
+     * 0xA0000, which might end up clobbered by the VGA driver if that
+     * is improperly enabled (Xen might write to 0xB8000-0xC0000).
+     */
+    trampoline_size = trampoline_end - trampoline_start;
+    trampoline_addr = 0;
+    for ( i = 0; i < e820_raw.nr_map; i++ )
+    {
+        unsigned long trampoline_max_start = 0xa0000 - trampoline_size;
+        trampoline_max_start &= PAGE_MASK;
+        if ( e820_raw.map[i].type == E820_RAM &&
+             e820_raw.map[i].addr <= trampoline_max_start &&
+             e820_raw.map[i].size >= trampoline_size )
+        {
+            unsigned long end = e820_raw.map[i].addr + e820_raw.map[i].size;
+            trampoline_addr = (end - trampoline_size) & PAGE_MASK;
+        }
+    }
+    relocate_trampoline(trampoline_addr);
+    memcpy((void *)trampoline_phys, trampoline_start, trampoline_size);
+}
+
+struct tboot_table {
+    char magic[8];        // "TBOOT_PE"
+    uint64_t phys_start;
+};
+
+/* This function is invoked by the PE entry point when the EFI system table's
+ * header does not have the correct signature.  It handles the case where Xen is
+ * being re-entered after invoking tboot (see do_sinit above).
+ *
+ * On return from tboot, we do not run 1:1 mapped, although our physical and
+ * virtual memory layouts are identical except for an offset.  Our physical
+ * start address is provided by tboot in a second information table.
+ *
+ * Be careful when calling other functions in this file; many of them assume
+ * that Xen is 1:1 mapped and omit calls to __pa() when using Xen symbols.
+ *
+ * Note that Xen's directmap is not available until we switch page tables in
+ * enter_xen_context. The lower 4GB of memory is 1:1 mapped, and that is where
+ * this function's arguments reside.
+ */
+static void __init arch_pe_entry(EFI_HANDLE ImageHandle,
+                                 EFI_SYSTEM_TABLE *SystemTable)
+{
+    struct tboot_table *tboot_table = (void *)SystemTable;
+
+    if ( SystemTable->Hdr.Signature == EFI_SYSTEM_TABLE_SIGNATURE )
+        return;
+
+    xen_phys_start = tboot_table->phys_start;
+    trampoline_xen_phys_start = xen_phys_start;
+
+    read_tboot_mbi(ImageHandle);
+
+    /* Runtime services are implemented via unmeasured code that the hypervisor
+     * jumps to in ring-0 context.  This is nearly impossible to secure.
+     *
+     * Disable them even if SINIT failed to simplify debugging problems that are
+     * purely due to not having access to runtime services.
+     */
+    __clear_bit(EFI_RS, &efi_flags);
+
+    /* Relocate the pointers we use to their 1:1 map instead of using the
+     * directmap (which is not present until we switch page tables)
+     */
+    efi_ct = (void *)efi_ct - DIRECTMAP_VIRT_START;
+
+    efi_arch_cpu();
+    efi_tables();
+
+    efi_ct = (void *)efi_ct + DIRECTMAP_VIRT_START;
+
+    relocate_pagetables_only();
+    relocate_trampoline_e820();
+
+    enter_xen_context(__pa(&mbi), __pa(idle_pg_table));
+}
+
+/* This function is called after Xen is started and verifies that the various
+ * data structures that bypassed tboot are located in RAM.
+ */
+void __init efi_tboot_verify_memory(bool (*not_ram)(const void*, size_t, void*), void* data)
+{
+    const struct efi_pci_rom *pci = efi_pci_roms;
+
+    /* Bail if we are not under UEFI */
+    if ( !efi_enabled(EFI_BOOT) || !efi_enabled(EFI_LOADER) )
+        return;
+
+    BUG_ON(not_ram(efi_ct, efi_num_ct * sizeof(*efi_ct), data));
+    BUG_ON(not_ram(efi_memmap, efi_memmap_size * efi_mdesc_size, data));
+
+    while ( pci != NULL )
+    {
+        BUG_ON(not_ram(pci, sizeof(*pci) + pci->size, data));
+        pci = pci->next;
+    }
 }
 
 /*

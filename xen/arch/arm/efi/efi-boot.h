@@ -392,7 +392,8 @@ static void __init efi_arch_cfg_file_early(EFI_FILE_HANDLE dir_handle, char *sec
         blexit(L"Unable to create new FDT");
 }
 
-static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *section)
+static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *section,
+                                          EFI_SHIM_LOCK_PROTOCOL *shim_lock)
 {
 }
 
@@ -412,6 +413,16 @@ static void __init efi_arch_edd(void)
 }
 
 static void __init efi_arch_memory_setup(void)
+{
+}
+
+static void __init arch_pe_entry(EFI_HANDLE ImageHandle,
+                                 EFI_SYSTEM_TABLE *SystemTable)
+{
+}
+
+static void __init efi_arch_handle_xen_filename(EFI_FILE_HANDLE dir_handle,
+                                                CHAR16 *file_name)
 {
 }
 

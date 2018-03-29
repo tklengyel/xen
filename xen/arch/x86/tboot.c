@@ -6,6 +6,7 @@
 #include <xen/iommu.h>
 #include <xen/acpi.h>
 #include <xen/pfn.h>
+#include <xen/efi.h>
 #include <asm/fixmap.h>
 #include <asm/page.h>
 #include <asm/processor.h>
@@ -69,6 +70,19 @@ typedef struct __packed {
     uint32_t     vtd_dmars_off;
 } sinit_mle_data_t;
 
+#define MDR_MEMTYPE_GOOD                0x00
+#define MDR_MEMTYPE_SMM_OVERLAY         0x01
+#define MDR_MEMTYPE_SMM_NONOVERLAY      0x02
+#define MDR_MEMTYPE_PCIE_CONFIG_SPACE   0x03
+#define MDR_MEMTYPE_PROTECTED           0x04
+
+typedef struct __packed {
+    uint64_t  base;
+    uint64_t  length;
+    uint8_t   mem_type;
+    uint8_t   reserved[7];
+} sinit_mdr_t;
+
 static void __init tboot_copy_memory(unsigned char *va, uint32_t size,
                                      unsigned long pa)
 {
@@ -86,6 +100,77 @@ static void __init tboot_copy_memory(unsigned char *va, uint32_t size,
         }
         va[i] = map_addr[pa + i - (map_base << PAGE_SHIFT)];
     }
+}
+
+static unsigned long __init read_sinit_mle_data(sinit_mle_data_t* sinit_mle_data)
+{
+    unsigned long pa;
+    uint64_t size;
+
+    /* walk heap to SinitMleData */
+    pa = txt_heap_base;
+    /* skip BiosData */
+    tboot_copy_memory((unsigned char *)&size, sizeof(size), pa);
+    pa += size;
+    /* skip OsMleData */
+    tboot_copy_memory((unsigned char *)&size, sizeof(size), pa);
+    pa += size;
+    /* skip OsSinitData */
+    tboot_copy_memory((unsigned char *)&size, sizeof(size), pa);
+    pa += size;
+    /* now points to SinitMleDataSize; set to SinitMleData */
+    pa += sizeof(uint64_t);
+    tboot_copy_memory((unsigned char *)sinit_mle_data, sizeof(*sinit_mle_data),
+                      pa);
+
+    return pa;
+}
+
+struct mdr_info {
+    uint32_t num_mdrs;
+    sinit_mdr_t* mdrs;
+};
+
+static bool __init tboot_is_outside_good_ram(const void* va, size_t size, void* data)
+{
+    uint32_t i;
+    uint64_t pa = __pa(va);
+    uint64_t pa_end = pa + size;
+    struct mdr_info* mdrs = data;
+
+    for ( i = 0; i < mdrs->num_mdrs; i++ )
+    {
+        uint64_t base = mdrs->mdrs[i].base;
+        uint64_t mdr_end = base + mdrs->mdrs[i].length;
+
+        if ( mdrs->mdrs[i].mem_type != MDR_MEMTYPE_GOOD )
+            continue;
+
+        if ( pa >= base && pa_end <= mdr_end )
+            return false;
+    }
+    return true;
+}
+
+static void __init tboot_check_mdrs(void)
+{
+    unsigned long pa;
+    sinit_mle_data_t sinit_mle_data;
+    struct mdr_info mdrs;
+
+    pa = read_sinit_mle_data(&sinit_mle_data);
+    pa += sinit_mle_data.mdrs_off - sizeof(uint64_t);
+
+    mdrs.num_mdrs = sinit_mle_data.num_mdrs;
+    mdrs.mdrs = xmalloc_array(sinit_mdr_t, mdrs.num_mdrs);
+    BUG_ON(!mdrs.mdrs);
+
+    tboot_copy_memory((unsigned char *)mdrs.mdrs,
+                      mdrs.num_mdrs * sizeof(mdrs.mdrs[0]), pa);
+
+    efi_tboot_verify_memory(tboot_is_outside_good_ram, &mdrs);
+
+    xfree(mdrs.mdrs);
 }
 
 void __init tboot_probe(void)
@@ -136,6 +221,9 @@ void __init tboot_probe(void)
                       TXT_PUB_CONFIG_REGS_BASE + TXTCR_SINIT_BASE);
     tboot_copy_memory((unsigned char *)&sinit_size, sizeof(sinit_size),
                       TXT_PUB_CONFIG_REGS_BASE + TXTCR_SINIT_SIZE);
+
+    tboot_check_mdrs();
+
     clear_fixmap(FIX_TBOOT_MAP_ADDRESS);
 }
 
@@ -440,7 +528,6 @@ int __init tboot_protect_mem_regions(void)
 int __init tboot_parse_dmar_table(acpi_table_handler dmar_handler)
 {
     int rc;
-    uint64_t size;
     uint32_t dmar_table_length;
     unsigned long pa;
     sinit_mle_data_t sinit_mle_data;
@@ -456,22 +543,8 @@ int __init tboot_parse_dmar_table(acpi_table_handler dmar_handler)
         return 1;
 
     /* map TXT heap into Xen addr space */
+    pa = read_sinit_mle_data(&sinit_mle_data);
 
-    /* walk heap to SinitMleData */
-    pa = txt_heap_base;
-    /* skip BiosData */
-    tboot_copy_memory((unsigned char *)&size, sizeof(size), pa);
-    pa += size;
-    /* skip OsMleData */
-    tboot_copy_memory((unsigned char *)&size, sizeof(size), pa);
-    pa += size;
-    /* skip OsSinitData */
-    tboot_copy_memory((unsigned char *)&size, sizeof(size), pa);
-    pa += size;
-    /* now points to SinitMleDataSize; set to SinitMleData */
-    pa += sizeof(uint64_t);
-    tboot_copy_memory((unsigned char *)&sinit_mle_data, sizeof(sinit_mle_data),
-                      pa);
     /* get addr of DMAR table */
     pa += sinit_mle_data.vtd_dmars_off - sizeof(uint64_t);
     tboot_copy_memory((unsigned char *)&dmar_table_length,
