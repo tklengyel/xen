@@ -614,7 +614,7 @@ static bool __init read_file(EFI_FILE_HANDLE dir_handle, CHAR16 *name,
         what = what ?: L"Seek";
     else
     {
-        file->addr = min(1UL << (32 + PAGE_SHIFT),
+        file->addr = min(1UL << 32,
                          HYPERVISOR_VIRT_END - DIRECTMAP_VIRT_START);
         ret = efi_bs->AllocatePages(AllocateMaxAddress, EfiLoaderData,
                                     PFN_UP(size), &file->addr);
@@ -1128,6 +1128,8 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     __set_bit(EFI_RS, &efi_flags);
 #endif
 
+    arch_pe_entry(ImageHandle, SystemTable);
+
     efi_init(ImageHandle, SystemTable);
 
     use_cfg_file = efi_arch_use_config_file(SystemTable);
@@ -1215,6 +1217,13 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
         /* Get the file system interface. */
         dir_handle = get_parent_handle(loaded_image, &file_name);
+
+        /* If loaded through the shim, file_name is that of the shim's so we
+         * hardcode xen.efi */
+        if ( shim_lock )
+            efi_arch_handle_xen_filename(dir_handle, L"xen.efi");
+        else
+            efi_arch_handle_xen_filename(dir_handle, file_name);
 
         /* Read and parse the config file. */
         if ( !cfg_file_name )
@@ -1340,7 +1349,7 @@ efi_start(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
             }
         }
 
-        efi_arch_cfg_file_late(dir_handle, section.s);
+        efi_arch_cfg_file_late(dir_handle, section.s, shim_lock);
 
         efi_bs->FreePages(cfg.addr, PFN_UP(cfg.size));
         cfg.addr = 0;

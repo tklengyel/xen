@@ -184,6 +184,13 @@ static elf_errorstatus elf_load_image(struct elf_binary *elf, elf_ptrval dst, el
         return -1;
     return 0;
 }
+
+static elf_errorstatus __init elf_load_image_raw(struct elf_binary *elf, elf_ptrval dst, elf_ptrval src, uint64_t filesz, uint64_t memsz)
+{
+    elf_memcpy_unchecked(ELF_UNSAFE_PTR(dst), ELF_UNSAFE_PTR(src), filesz);
+    elf_memset_unchecked(ELF_UNSAFE_PTR(dst + filesz), 0, memsz - filesz);
+    return 0;
+}
 #endif
 
 /* Calculate the required additional kernel space for the elf image */
@@ -545,6 +552,59 @@ elf_errorstatus elf_load_binary(struct elf_binary *elf)
     elf_load_bsdsyms(elf);
     return 0;
 }
+
+#ifdef __XEN__
+elf_errorstatus __init elf_load_binary_raw(struct elf_binary *elf)
+{
+    ELF_HANDLE_DECL(elf_phdr) phdr;
+    uint64_t paddr, offset, filesz, memsz;
+    unsigned i, count;
+    elf_ptrval dest;
+    /*
+     * Let bizarre ELFs write the output image up to twice; this
+     * calculation is just to ensure our copying loop is no worse than
+     * O(domain_size).
+     */
+    uint64_t remain_allow_copy = (uint64_t)elf->dest_size * 2;
+
+    count = elf_phdr_count(elf);
+    for ( i = 0; i < count; i++ )
+    {
+        phdr = elf_phdr_by_index(elf, i);
+        if ( !elf_access_ok(elf, ELF_HANDLE_PTRVAL(phdr), 1) )
+            /* input has an insane program header count field */
+            break;
+        if ( !elf_phdr_is_loadable(elf, phdr) )
+            continue;
+        paddr = elf_uval(elf, phdr, p_paddr);
+        offset = elf_uval(elf, phdr, p_offset);
+        filesz = elf_uval(elf, phdr, p_filesz);
+        memsz = elf_uval(elf, phdr, p_memsz);
+        dest = elf_get_ptr(elf, paddr);
+
+        /*
+         * We need to check that the input image doesn't have us copy
+         * the whole image zillions of times, as that could lead to
+         * O(n^2) time behaviour and possible DoS by a malicous ELF.
+         */
+        if ( remain_allow_copy < memsz )
+        {
+            elf_mark_broken(elf, "program segments total to more"
+                            " than the input image size");
+            break;
+        }
+        remain_allow_copy -= memsz;
+
+        elf_msg(elf,
+                "ELF: phdr %u at %#"ELF_PRPTRVAL" -> %#"ELF_PRPTRVAL"\n",
+                i, dest, (elf_ptrval)(dest + filesz));
+        if ( elf_load_image_raw(elf, dest, ELF_IMAGE_BASE(elf) + offset, filesz, memsz) != 0 )
+            return -1;
+    }
+
+    return 0;
+}
+#endif
 
 elf_ptrval elf_get_ptr(struct elf_binary *elf, unsigned long addr)
 {

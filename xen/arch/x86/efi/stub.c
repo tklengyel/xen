@@ -50,6 +50,11 @@ bool efi_enabled(unsigned int feature)
 
 void __init efi_init_memory(void) { }
 
+void __init efi_tboot_verify_memory(bool (*not_ram)(const void*, size_t, void*),
+                                    void* data)
+{
+}
+
 void efi_update_l4_pgtable(unsigned int l4idx, l4_pgentry_t l4e) { }
 
 bool efi_rs_using_pgtables(void)

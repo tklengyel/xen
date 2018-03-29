@@ -112,6 +112,20 @@ Specifies an alternate configuration file to use in case the specified section
 specified) configuration file. This is only meaningful in the [global] section
 and really not meant to be used together with the `-cfg=` command line option.
 
+###`tboot=<filename>[ <options>]`
+
+Specifies the location of the tboot binary, which must be a valid (uncompressed)
+ELF kernel for tboot.  This binary will be invoked just after exiting EFI Boot
+Services, and will be expected to load and return execution to Xen after
+invoking SINIT.
+
+###`sinit=<filename>[ <filename>]*`
+
+Specifies the location(s) of SINIT binaries to be passed to tboot.  This is
+required unless your firmware provides its own SINIT (which is not common).
+Multiple SINIT binaries may be provided by separating the filenames with spaces;
+the last one that supports your chipset will be used.
+
 Filenames must be specified relative to the location of the EFI binary.
 
 Extra options to be passed to Xen can also be specified on the command line,

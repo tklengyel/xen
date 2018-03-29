@@ -364,6 +364,7 @@ void elf_set_log(struct elf_binary *elf, elf_log_callback*,
 
 void elf_parse_binary(struct elf_binary *elf);
 elf_errorstatus elf_load_binary(struct elf_binary *elf);
+elf_errorstatus elf_load_binary_raw(struct elf_binary *elf);
 
 elf_ptrval elf_get_ptr(struct elf_binary *elf, unsigned long addr);
 uint64_t elf_lookup_addr(struct elf_binary *elf, const char *symbol);
