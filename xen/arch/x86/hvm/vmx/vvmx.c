@@ -26,6 +26,7 @@
 #include <asm/hvm/vmx/vmx.h>
 #include <asm/hvm/vmx/vvmx.h>
 #include <asm/hvm/nestedhvm.h>
+#include <asm/ipt.h>
 
 static DEFINE_PER_CPU(u64 *, vvmcs_buf);
 
@@ -1504,6 +1505,14 @@ static int nvmx_handle_vmxon(struct cpu_user_regs *regs)
     v->arch.hvm.vmx.launched = 0;
     vmsucceed(regs);
 
+    if ( v->arch.hvm.vmx.ipt_desc )
+    {
+        v->arch.hvm.vmx.ipt_desc->ipt_guest.ctl = 0;
+        vmx_vmcs_enter(current);
+        __vmwrite(GUEST_IA32_RTIT_CTL, 0);
+        vmx_vmcs_exit(current);
+    }
+
     return X86EMUL_OKAY;
 }
 
@@ -2244,8 +2253,8 @@ int nvmx_msr_read_intercept(unsigned int msr, u64 *msr_content)
         data = hvm_cr4_guest_valid_bits(d, false);
         break;
     case MSR_IA32_VMX_MISC:
-        /* Do not support CR3-target feature now */
-        data = host_data & ~VMX_MISC_CR3_TARGET;
+        /* Do not support CR3-target and PT VMX feature now */
+        data = host_data & ~(VMX_MISC_CR3_TARGET | VMX_MISC_PT_ENABLE);
         break;
     case MSR_IA32_VMX_EPT_VPID_CAP:
         data = nept_get_ept_vpid_cap();
