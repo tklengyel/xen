@@ -3387,6 +3387,7 @@ static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
         .write_access = q.write,
         .insn_fetch = q.fetch,
         .present = q.eff_read || q.eff_write || q.eff_exec,
+        .async = q.async,
     };
 
     if ( tb_init_done )
@@ -4168,6 +4169,10 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
         break;
 
     case EXIT_REASON_APIC_ACCESS:
+        __vmread(EXIT_QUALIFICATION, &exit_qualification);
+        if ( exit_qualification & 0x10000 )
+            goto exit_and_crash;
+
         if ( !vmx_handle_eoi_write() && !handle_mmio() )
             hvm_inject_hw_exception(TRAP_gp_fault, 0);
         break;
