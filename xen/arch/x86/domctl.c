@@ -35,6 +35,7 @@
 #include <asm/debugger.h>
 #include <asm/psr.h>
 #include <asm/cpuid.h>
+#include <asm/ipt.h>
 
 static int gdbsx_guest_mem_io(domid_t domid, struct xen_domctl_gdbsx_memio *iop)
 {

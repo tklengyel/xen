@@ -24,6 +24,8 @@
 #define IPT_MODE_OFF        0
 #define IPT_MODE_GUEST      (1<<0)
 
+#define IPT_CPUID           0x00000014
+
 extern unsigned int ipt_mode;
 
 #endif /* __ASM_X86_HVM_IPT_H_ */

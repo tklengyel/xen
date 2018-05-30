@@ -109,6 +109,7 @@
 #define cpu_has_sha             boot_cpu_has(X86_FEATURE_SHA)
 #define cpu_has_avx512bw        boot_cpu_has(X86_FEATURE_AVX512BW)
 #define cpu_has_avx512vl        boot_cpu_has(X86_FEATURE_AVX512VL)
+#define cpu_has_ipt             boot_cpu_has(X86_FEATURE_IPT)
 
 /* CPUID level 0x00000007:0.ecx */
 #define cpu_has_avx512_vbmi     boot_cpu_has(X86_FEATURE_AVX512_VBMI)
