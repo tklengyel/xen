@@ -55,6 +55,7 @@
 #include <asm/hvm/nestedhvm.h>
 #include <asm/altp2m.h>
 #include <asm/event.h>
+#include <asm/ipt.h>
 #include <asm/mce.h>
 #include <asm/monitor.h>
 #include <public/arch-x86/cpuid.h>
@@ -472,11 +473,16 @@ static int vmx_vcpu_initialise(struct vcpu *v)
     if ( v->vcpu_id == 0 )
         v->arch.user_regs.rax = 1;
 
+    rc = ipt_initialize(v);
+    if ( rc )
+        dprintk(XENLOG_ERR, "%pv: Failed to init Intel Processor Trace.\n", v);
+
     return 0;
 }
 
 static void vmx_vcpu_destroy(struct vcpu *v)
 {
+    ipt_destroy(v);
     /*
      * There are cases that domain still remains in log-dirty mode when it is
      * about to be destroyed (ex, user types 'xl destroy <dom>'), in which case
@@ -3714,6 +3720,8 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     __vmread(GUEST_RSP,    &regs->rsp);
     __vmread(GUEST_RFLAGS, &regs->rflags);
 
+    ipt_guest_exit(v);
+
     hvm_invalidate_regs_fields(regs);
 
     if ( paging_mode_hap(v->domain) )
@@ -4516,6 +4524,8 @@ bool vmx_vmenter_helper(const struct cpu_user_regs *regs)
     }
 
  out:
+    ipt_guest_enter(curr);
+
     if ( unlikely(curr->arch.hvm_vmx.lbr_flags & LBR_FIXUP_MASK) )
         lbr_fixup();
 
