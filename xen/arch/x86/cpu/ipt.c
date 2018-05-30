@@ -25,10 +25,71 @@
 #include <asm/ipt.h>
 #include <asm/msr.h>
 
+#define EAX 0
+#define ECX 1
+#define EDX 2
+#define EBX 3
+#define CPUID_REGS_NUM   4 /* number of regsters (eax, ebx, ecx, edx) */
+
 /* ipt: Flag to enable Intel Processor Trace (default off). */
 unsigned int __read_mostly ipt_mode = IPT_MODE_OFF;
 static int parse_ipt_params(const char *str);
 custom_param("ipt", parse_ipt_params);
+
+#define IPT_CAP(_n, _l, _r, _m)                               \
+    [IPT_CAP_ ## _n] = { .name = __stringify(_n), .leaf = _l, \
+        .reg = _r, .mask = _m }
+
+static struct ipt_cap_desc {
+    const char    *name;
+    unsigned int  leaf;
+    unsigned char reg;
+    unsigned int  mask;
+} ipt_caps[] = {
+    IPT_CAP(max_subleaf,            0, EAX, 0xffffffff),
+    IPT_CAP(cr3_filter,             0, EBX, BIT(0, UL)),
+    IPT_CAP(psb_cyc,                0, EBX, BIT(1, UL)),
+    IPT_CAP(ip_filter,              0, EBX, BIT(2, UL)),
+    IPT_CAP(mtc,                    0, EBX, BIT(3, UL)),
+    IPT_CAP(ptwrite,                0, EBX, BIT(4, UL)),
+    IPT_CAP(power_event,            0, EBX, BIT(5, UL)),
+    IPT_CAP(topa_output,            0, ECX, BIT(0, UL)),
+    IPT_CAP(topa_multi_entry,       0, ECX, BIT(1, UL)),
+    IPT_CAP(single_range_output,    0, ECX, BIT(2, UL)),
+    IPT_CAP(output_subsys,          0, ECX, BIT(3, UL)),
+    IPT_CAP(payloads_lip,           0, ECX, BIT(31, UL)),
+    IPT_CAP(addr_range,             1, EAX, 0x7),
+    IPT_CAP(mtc_period,             1, EAX, 0xffff0000),
+    IPT_CAP(cycle_threshold,        1, EBX, 0xffff),
+    IPT_CAP(psb_freq,               1, EBX, 0xffff0000),
+};
+
+static unsigned int ipt_cap(const struct cpuid_leaf *cpuid_ipt, enum ipt_cap cap)
+{
+    const struct ipt_cap_desc *cd = &ipt_caps[cap];
+    unsigned int shift = ffs(cd->mask) - 1;
+    unsigned int val = 0;
+
+    cpuid_ipt += cd->leaf;
+
+    switch ( cd->reg )
+    {
+    case EAX:
+        val = cpuid_ipt->a;
+        break;
+    case EBX:
+        val = cpuid_ipt->b;
+        break;
+    case ECX:
+        val = cpuid_ipt->c;
+        break;
+    case EDX:
+        val = cpuid_ipt->d;
+        break;
+    }
+
+    return (val & cd->mask) >> shift;
+}
 
 static int __init parse_ipt_params(const char *str)
 {
@@ -76,7 +137,7 @@ static inline void ipt_save_msr(struct ipt_ctx *ctx, unsigned int addr_range)
 
 void ipt_guest_enter(struct vcpu *v)
 {
-    struct ipt_desc *ipt = v->arch.hvm_vmx.ipt_desc;
+    struct ipt_desc *ipt = v->arch.hvm.vmx.ipt_desc;
 
     if ( !ipt )
         return;
@@ -98,7 +159,7 @@ void ipt_guest_enter(struct vcpu *v)
 
 void ipt_guest_exit(struct vcpu *v)
 {
-    struct ipt_desc *ipt = v->arch.hvm_vmx.ipt_desc;
+    struct ipt_desc *ipt = v->arch.hvm.vmx.ipt_desc;
 
     if ( !ipt )
         return;
@@ -113,7 +174,7 @@ int ipt_initialize(struct vcpu *v)
     unsigned int eax, tmp, addr_range;
 
     if ( !cpu_has_ipt || (ipt_mode == IPT_MODE_OFF) ||
-         !(v->arch.hvm_vmx.secondary_exec_control & SECONDARY_EXEC_PT_USE_GPA) )
+         !(v->arch.hvm.vmx.secondary_exec_control & SECONDARY_EXEC_PT_USE_GPA) )
         return 0;
 
     if ( cpuid_eax(IPT_CPUID) == 0 )
@@ -128,16 +189,16 @@ int ipt_initialize(struct vcpu *v)
 
     ipt->addr_range = addr_range;
     ipt->ipt_guest.output_mask = RTIT_OUTPUT_MASK_DEFAULT;
-    v->arch.hvm_vmx.ipt_desc = ipt;
+    v->arch.hvm.vmx.ipt_desc = ipt;
 
     return 0;
 }
 
 void ipt_destroy(struct vcpu *v)
 {
-    if ( v->arch.hvm_vmx.ipt_desc )
+    if ( v->arch.hvm.vmx.ipt_desc )
     {
-        xfree(v->arch.hvm_vmx.ipt_desc);
-        v->arch.hvm_vmx.ipt_desc = NULL;
+        xfree(v->arch.hvm.vmx.ipt_desc);
+        v->arch.hvm.vmx.ipt_desc = NULL;
     }
 }
