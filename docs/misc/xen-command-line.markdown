@@ -1277,6 +1277,16 @@ Rather than only mapping RAM pages for IOMMU accesses for Dom0, with this
 option all pages not marked as unusable in the E820 table will get a mapping
 established.
 
+### ipt
+> `= guest`
+
+> Default: `off`
+
+This option is use for switch on the Intel Processor Trace feature
+in HVM guest when 'ipt=guest'. By default, this feature is disabled
+in guest. Intel Processor Trace virtualization depend on
+EPT, so it can only enabled in HVM guest at present.
+
 ### irq\_ratelimit (x86)
 > `= <integer>`
 
