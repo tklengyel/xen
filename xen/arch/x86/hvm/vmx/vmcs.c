@@ -42,6 +42,7 @@
 #include <asm/spec_ctrl.h>
 #include <asm/tboot.h>
 #include <asm/apic.h>
+#include <asm/ipt.h>
 
 static bool_t __read_mostly opt_vpid_enabled = 1;
 boolean_param("vpid", opt_vpid_enabled);
@@ -296,6 +297,9 @@ static int vmx_init_vmcs_config(void)
         rdmsrl(MSR_IA32_VMX_MISC, _vmx_misc_cap);
         if ( _vmx_misc_cap & VMX_MISC_VMWRITE_ALL )
             opt |= SECONDARY_EXEC_ENABLE_VMCS_SHADOWING;
+        if ( _vmx_misc_cap & VMX_MISC_PT_ENABLE )
+            opt |= SECONDARY_EXEC_PT_USE_GPA |
+                   SECONDARY_EXEC_CONCEAL_PT_PIP;
         if ( opt_vpid_enabled )
             opt |= SECONDARY_EXEC_ENABLE_VPID;
         if ( opt_unrestricted_guest_enabled )
@@ -397,7 +401,8 @@ static int vmx_init_vmcs_config(void)
 
     min = VM_EXIT_ACK_INTR_ON_EXIT;
     opt = VM_EXIT_SAVE_GUEST_PAT | VM_EXIT_LOAD_HOST_PAT |
-          VM_EXIT_CLEAR_BNDCFGS;
+          VM_EXIT_CLEAR_BNDCFGS | VM_EXIT_CONCEAL_PT_PIP |
+          VM_EXIT_CLEAR_IA32_RTIT_CTL;
     min |= VM_EXIT_IA32E_MODE;
     _vmx_vmexit_control = adjust_vmx_controls(
         "VMExit Control", min, opt, MSR_IA32_VMX_EXIT_CTLS, &mismatch);
@@ -437,12 +442,28 @@ static int vmx_init_vmcs_config(void)
         _vmx_secondary_exec_control &= ~SECONDARY_EXEC_ENABLE_VIRT_EXCEPTIONS;
 
     min = 0;
-    opt = VM_ENTRY_LOAD_GUEST_PAT | VM_ENTRY_LOAD_BNDCFGS;
+    opt = VM_ENTRY_LOAD_GUEST_PAT | VM_ENTRY_LOAD_BNDCFGS |
+          VM_ENTRY_CONCEAL_PT_PIP | VM_ENTRY_LOAD_IA32_RTIT_CTL;
     _vmx_vmentry_control = adjust_vmx_controls(
         "VMEntry Control", min, opt, MSR_IA32_VMX_ENTRY_CTLS, &mismatch);
 
     if ( mismatch )
         return -EINVAL;
+
+    if ( !(_vmx_secondary_exec_control & SECONDARY_EXEC_ENABLE_EPT) ||
+         !(_vmx_secondary_exec_control & SECONDARY_EXEC_PT_USE_GPA) ||
+         !(_vmx_vmexit_control & VM_EXIT_CLEAR_IA32_RTIT_CTL) ||
+         !(_vmx_vmentry_control & VM_ENTRY_LOAD_IA32_RTIT_CTL) ||
+         (ipt_mode == IPT_MODE_OFF) )
+    {
+        _vmx_secondary_exec_control &= ~(SECONDARY_EXEC_PT_USE_GPA |
+                                         SECONDARY_EXEC_CONCEAL_PT_PIP);
+        _vmx_vmexit_control &= ~(VM_EXIT_CONCEAL_PT_PIP |
+                                 VM_EXIT_CLEAR_IA32_RTIT_CTL);
+        _vmx_vmentry_control &= ~(VM_ENTRY_CONCEAL_PT_PIP |
+                                  VM_ENTRY_LOAD_IA32_RTIT_CTL);
+        ipt_mode = IPT_MODE_OFF;
+    }
 
     if ( !vmx_pin_based_exec_control )
     {
@@ -1092,10 +1113,16 @@ static int construct_vmcs(struct vcpu *v)
         v->arch.hvm_vmx.secondary_exec_control &= 
             ~(SECONDARY_EXEC_ENABLE_EPT | 
               SECONDARY_EXEC_UNRESTRICTED_GUEST |
-              SECONDARY_EXEC_ENABLE_INVPCID);
+              SECONDARY_EXEC_ENABLE_INVPCID |
+              SECONDARY_EXEC_PT_USE_GPA |
+              SECONDARY_EXEC_CONCEAL_PT_PIP);
         vmexit_ctl &= ~(VM_EXIT_SAVE_GUEST_PAT |
-                        VM_EXIT_LOAD_HOST_PAT);
-        vmentry_ctl &= ~VM_ENTRY_LOAD_GUEST_PAT;
+                        VM_EXIT_LOAD_HOST_PAT |
+                        VM_EXIT_CONCEAL_PT_PIP |
+                        VM_EXIT_CLEAR_IA32_RTIT_CTL);
+        vmentry_ctl &= ~(VM_ENTRY_LOAD_GUEST_PAT |
+                         VM_ENTRY_CONCEAL_PT_PIP |
+                         VM_ENTRY_LOAD_IA32_RTIT_CTL);
     }
 
     /* Do not enable Monitor Trap Flag unless start single step debug */

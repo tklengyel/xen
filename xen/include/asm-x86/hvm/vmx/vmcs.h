@@ -237,6 +237,8 @@ extern u32 vmx_pin_based_exec_control;
 #define VM_EXIT_LOAD_HOST_EFER          0x00200000
 #define VM_EXIT_SAVE_PREEMPT_TIMER      0x00400000
 #define VM_EXIT_CLEAR_BNDCFGS           0x00800000
+#define VM_EXIT_CONCEAL_PT_PIP          0x01000000
+#define VM_EXIT_CLEAR_IA32_RTIT_CTL     0x02000000
 extern u32 vmx_vmexit_control;
 
 #define VM_ENTRY_IA32E_MODE             0x00000200
@@ -246,6 +248,8 @@ extern u32 vmx_vmexit_control;
 #define VM_ENTRY_LOAD_GUEST_PAT         0x00004000
 #define VM_ENTRY_LOAD_GUEST_EFER        0x00008000
 #define VM_ENTRY_LOAD_BNDCFGS           0x00010000
+#define VM_ENTRY_CONCEAL_PT_PIP         0x00020000
+#define VM_ENTRY_LOAD_IA32_RTIT_CTL     0x00040000
 extern u32 vmx_vmentry_control;
 
 #define SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES 0x00000001
@@ -264,7 +268,9 @@ extern u32 vmx_vmentry_control;
 #define SECONDARY_EXEC_ENABLE_VMCS_SHADOWING    0x00004000
 #define SECONDARY_EXEC_ENABLE_PML               0x00020000
 #define SECONDARY_EXEC_ENABLE_VIRT_EXCEPTIONS   0x00040000
+#define SECONDARY_EXEC_CONCEAL_PT_PIP           0x00080000
 #define SECONDARY_EXEC_XSAVES                   0x00100000
+#define SECONDARY_EXEC_PT_USE_GPA               0x01000000
 #define SECONDARY_EXEC_TSC_SCALING              0x02000000
 extern u32 vmx_secondary_exec_control;
 
@@ -285,6 +291,7 @@ extern u32 vmx_secondary_exec_control;
 #define VMX_VPID_INVVPID_SINGLE_CONTEXT_RETAINING_GLOBAL 0x80000000000ULL
 extern u64 vmx_ept_vpid_cap;
 
+#define VMX_MISC_PT_ENABLE                      0x00004000
 #define VMX_MISC_CR3_TARGET                     0x01ff0000
 #define VMX_MISC_VMWRITE_ALL                    0x20000000
 
