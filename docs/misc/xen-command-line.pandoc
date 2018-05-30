@@ -1366,7 +1366,17 @@ wait descriptor timed out', try increasing this value.
 **WARNING: This command line option is deprecated, and superseded by
 _dom0-iommu=map-inclusive_ - using both options in combination is undefined.**
 
-### irq_ratelimit (x86)
+### ipt
+> `= guest`
+
+> Default: `off`
+
+This option is use for switch on the Intel Processor Trace feature
+in HVM guest when 'ipt=guest'. By default, this feature is disabled
+in guest. Intel Processor Trace virtualization depend on
+EPT, so it can only enabled in HVM guest at present.
+
+### irq\_ratelimit (x86)
 > `= <integer>`
 
 ### irq_vector_map (x86)
