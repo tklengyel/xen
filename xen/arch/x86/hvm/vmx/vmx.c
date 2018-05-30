@@ -3060,6 +3060,15 @@ static int vmx_msr_read_intercept(unsigned int msr, uint64_t *msr_content)
         if ( vpmu_do_rdmsr(msr, msr_content) )
             goto gp_fault;
         break;
+    case MSR_IA32_RTIT_CTL:
+    case MSR_IA32_RTIT_STATUS:
+    case MSR_IA32_RTIT_OUTPUT_BASE:
+    case MSR_IA32_RTIT_OUTPUT_MASK:
+    case MSR_IA32_RTIT_CR3_MATCH:
+    case MSR_IA32_RTIT_ADDR_A(0) ... MSR_IA32_RTIT_ADDR_B(3):
+        if ( ipt_do_rdmsr(msr, msr_content) )
+            goto gp_fault;
+        break;
 
     default:
         if ( passive_domain_do_rdmsr(msr, msr_content) )
@@ -3351,6 +3360,15 @@ static int vmx_msr_write_intercept(unsigned int msr, uint64_t msr_content)
     case MSR_IA32_PEBS_ENABLE:
     case MSR_IA32_DS_AREA:
          if ( vpmu_do_wrmsr(msr, msr_content, 0) )
+            goto gp_fault;
+        break;
+    case MSR_IA32_RTIT_CTL:
+    case MSR_IA32_RTIT_STATUS:
+    case MSR_IA32_RTIT_OUTPUT_BASE:
+    case MSR_IA32_RTIT_OUTPUT_MASK:
+    case MSR_IA32_RTIT_CR3_MATCH:
+    case MSR_IA32_RTIT_ADDR_A(0) ... MSR_IA32_RTIT_ADDR_B(3):
+        if ( ipt_do_wrmsr(msr, msr_content) )
             goto gp_fault;
         break;
 
