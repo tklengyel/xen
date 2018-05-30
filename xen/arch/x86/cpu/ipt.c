@@ -31,6 +31,14 @@
 #define EBX 3
 #define CPUID_REGS_NUM   4 /* number of regsters (eax, ebx, ecx, edx) */
 
+#define MSR_IA32_RTIT_STATUS_MASK (~(RTIT_STATUS_FILTER_EN | \
+               RTIT_STATUS_CONTEXT_EN | RTIT_STATUS_TRIGGER_EN | \
+               RTIT_STATUS_ERROR | RTIT_STATUS_STOPPED | \
+               RTIT_STATUS_BYTECNT))
+
+#define MSR_IA32_RTIT_OUTPUT_BASE_MASK(maxphyaddr) \
+               (~((1UL << (maxphyaddr)) - 1) | 0x7f)
+
 /* ipt: Flag to enable Intel Processor Trace (default off). */
 unsigned int __read_mostly ipt_mode = IPT_MODE_OFF;
 static int parse_ipt_params(const char *str);
@@ -99,6 +107,105 @@ static int __init parse_ipt_params(const char *str)
     {
         printk("Unknown Intel Processor Trace mode specified: '%s'\n", str);
         return -EINVAL;
+    }
+
+    return 0;
+}
+
+int ipt_do_rdmsr(unsigned int msr, uint64_t *msr_content)
+{
+    const struct ipt_desc *ipt_desc = current->arch.hvm_vmx.ipt_desc;
+    const struct cpuid_policy *p = current->domain->arch.cpuid;
+    unsigned int index;
+
+    if ( !ipt_desc )
+        return 1;
+
+    switch ( msr )
+    {
+    case MSR_IA32_RTIT_CTL:
+        *msr_content = ipt_desc->ipt_guest.ctl;
+        break;
+    case MSR_IA32_RTIT_STATUS:
+        *msr_content = ipt_desc->ipt_guest.status;
+        break;
+    case MSR_IA32_RTIT_OUTPUT_BASE:
+        if ( !ipt_cap(p->ipt.raw, IPT_CAP_single_range_output) &&
+             !ipt_cap(p->ipt.raw, IPT_CAP_topa_output) )
+            return 1;
+        *msr_content = ipt_desc->ipt_guest.output_base;
+        break;
+    case MSR_IA32_RTIT_OUTPUT_MASK:
+        if ( !ipt_cap(p->ipt.raw, IPT_CAP_single_range_output) &&
+             !ipt_cap(p->ipt.raw, IPT_CAP_topa_output) )
+            return 1;
+        *msr_content = ipt_desc->ipt_guest.output_mask |
+                                    RTIT_OUTPUT_MASK_DEFAULT;
+        break;
+    case MSR_IA32_RTIT_CR3_MATCH:
+        if ( !ipt_cap(p->ipt.raw, IPT_CAP_cr3_filter) )
+            return 1;
+        *msr_content = ipt_desc->ipt_guest.cr3_match;
+        break;
+    default:
+	index = msr - MSR_IA32_RTIT_ADDR_A(0);
+        if ( index >= ipt_cap(p->ipt.raw, IPT_CAP_addr_range) * 2 )
+            return 1;
+        *msr_content = ipt_desc->ipt_guest.addr[index];
+    }
+
+    return 0;
+}
+
+int ipt_do_wrmsr(unsigned int msr, uint64_t msr_content)
+{
+    struct ipt_desc *ipt_desc = current->arch.hvm_vmx.ipt_desc;
+    const struct cpuid_policy *p = current->domain->arch.cpuid;
+    unsigned int index;
+
+    if ( !ipt_desc )
+        return 1;
+
+    switch ( msr )
+    {
+    case MSR_IA32_RTIT_CTL:
+        ipt_desc->ipt_guest.ctl = msr_content;
+        __vmwrite(GUEST_IA32_RTIT_CTL, msr_content);
+        break;
+    case MSR_IA32_RTIT_STATUS:
+        if ( (ipt_desc->ipt_guest.ctl & RTIT_CTL_TRACEEN) ||
+             (msr_content & MSR_IA32_RTIT_STATUS_MASK) )
+            return 1;
+        ipt_desc->ipt_guest.status = msr_content;
+        break;
+    case MSR_IA32_RTIT_OUTPUT_BASE:
+        if ( (ipt_desc->ipt_guest.ctl & RTIT_CTL_TRACEEN) ||
+             (msr_content &
+                 MSR_IA32_RTIT_OUTPUT_BASE_MASK(p->extd.maxphysaddr)) ||
+             (!ipt_cap(p->ipt.raw, IPT_CAP_single_range_output) &&
+              !ipt_cap(p->ipt.raw, IPT_CAP_topa_output)) )
+            return 1;
+        ipt_desc->ipt_guest.output_base = msr_content;
+        break;
+    case MSR_IA32_RTIT_OUTPUT_MASK:
+        if ( (ipt_desc->ipt_guest.ctl & RTIT_CTL_TRACEEN) ||
+             (!ipt_cap(p->ipt.raw, IPT_CAP_single_range_output) &&
+              !ipt_cap(p->ipt.raw, IPT_CAP_topa_output)) )
+            return 1;
+        ipt_desc->ipt_guest.output_mask = msr_content |
+                                RTIT_OUTPUT_MASK_DEFAULT;
+        break;
+    case MSR_IA32_RTIT_CR3_MATCH:
+        if ( (ipt_desc->ipt_guest.ctl & RTIT_CTL_TRACEEN) ||
+             !ipt_cap(p->ipt.raw, IPT_CAP_cr3_filter) )
+            return 1;
+        ipt_desc->ipt_guest.cr3_match = msr_content;
+        break;
+    default:
+        index = msr - MSR_IA32_RTIT_ADDR_A(0);
+        if ( index >= ipt_cap(p->ipt.raw, IPT_CAP_addr_range) * 2 )
+            return 1;
+        ipt_desc->ipt_guest.addr[index] = msr_content;
     }
 
     return 0;
@@ -202,3 +309,4 @@ void ipt_destroy(struct vcpu *v)
         v->arch.hvm.vmx.ipt_desc = NULL;
     }
 }
+

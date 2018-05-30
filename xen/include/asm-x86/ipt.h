@@ -64,6 +64,9 @@ struct ipt_desc {
     struct ipt_ctx ipt_guest;
 };
 
+extern int ipt_do_rdmsr(unsigned int msr, uint64_t *pdata);
+extern int ipt_do_wrmsr(unsigned int msr, uint64_t data);
+
 extern void ipt_guest_enter(struct vcpu *v);
 extern void ipt_guest_exit(struct vcpu *v);
 
