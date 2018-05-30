@@ -31,6 +31,25 @@
 
 extern unsigned int ipt_mode;
 
+enum ipt_cap {
+    IPT_CAP_max_subleaf = 0,
+    IPT_CAP_cr3_filter,
+    IPT_CAP_psb_cyc,
+    IPT_CAP_ip_filter,
+    IPT_CAP_mtc,
+    IPT_CAP_ptwrite,
+    IPT_CAP_power_event,
+    IPT_CAP_topa_output,
+    IPT_CAP_topa_multi_entry,
+    IPT_CAP_single_range_output,
+    IPT_CAP_output_subsys,
+    IPT_CAP_payloads_lip,
+    IPT_CAP_addr_range,
+    IPT_CAP_mtc_period,
+    IPT_CAP_cycle_threshold,
+    IPT_CAP_psb_freq,
+};
+
 struct ipt_ctx {
     uint64_t ctl;
     uint64_t status;
