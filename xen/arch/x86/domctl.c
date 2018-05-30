@@ -35,6 +35,7 @@
 #include <asm/debugger.h>
 #include <asm/psr.h>
 #include <asm/cpuid.h>
+#include <asm/ipt.h>
 
 static int gdbsx_guest_mem_io(domid_t domid, struct xen_domctl_gdbsx_memio *iop)
 {
@@ -99,6 +100,10 @@ static int update_domain_cpuid_info(struct domain *d,
 
         case 7:
             p->feat.raw[ctl->input[1]] = leaf;
+            break;
+
+        case IPT_CPUID:
+            p->ipt.raw[ctl->input[1]] = leaf;
             break;
 
         case XSTATE_CPUID:

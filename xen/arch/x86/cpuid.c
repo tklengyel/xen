@@ -6,6 +6,7 @@
 #include <asm/hvm/nestedhvm.h>
 #include <asm/hvm/svm/svm.h>
 #include <asm/hvm/vmx/vmcs.h>
+#include <asm/ipt.h>
 #include <asm/paging.h>
 #include <asm/processor.h>
 #include <asm/xstate.h>
@@ -593,7 +594,19 @@ void recalculate_cpuid_policy(struct domain *d)
             __clear_bit(X86_FEATURE_VMX, max_fs);
             __clear_bit(X86_FEATURE_SVM, max_fs);
         }
+
+        /*
+         * Hide Intel Processor trace feature when hardware not support
+         * PT-VMX or ipt option is off.
+         */
+        if ( ipt_mode == IPT_MODE_OFF )
+        {
+            __clear_bit(X86_FEATURE_IPT, max_fs);
+            zero_leaves(p->ipt.raw, 0, ARRAY_SIZE(p->ipt.raw) - 1);
+        }
     }
+    else
+        zero_leaves(p->ipt.raw, 0, ARRAY_SIZE(p->ipt.raw) - 1);
 
     /*
      * Allow the toolstack to set HTT, X2APIC and CMP_LEGACY.  These bits
@@ -752,6 +765,15 @@ void guest_cpuid(const struct vcpu *v, uint32_t leaf,
                 return;
 
             *res = p->feat.raw[subleaf];
+            break;
+
+        case IPT_CPUID:
+            ASSERT(p->ipt.max_subleaf < ARRAY_SIZE(p->ipt.raw));
+            if ( subleaf > min_t(uint32_t, p->ipt.max_subleaf,
+                                 ARRAY_SIZE(p->ipt.raw) - 1) )
+                return;
+
+            *res = p->ipt.raw[subleaf];
             break;
 
         case XSTATE_CPUID:

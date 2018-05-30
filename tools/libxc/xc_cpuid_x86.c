@@ -38,7 +38,7 @@ enum {
 #define clear_feature(idx, dst) ((dst) &= ~bitmaskof(idx))
 #define set_feature(idx, dst)   ((dst) |=  bitmaskof(idx))
 
-#define DEF_MAX_BASE 0x0000000du
+#define DEF_MAX_BASE 0x00000014u
 #define DEF_MAX_INTELEXT  0x80000008u
 #define DEF_MAX_AMDEXT    0x8000001cu
 
@@ -510,6 +510,7 @@ static void xc_cpuid_hvm_policy(xc_interface *xch,
     case 0x00000002: /* Intel cache info (dumped by AMD policy) */
     case 0x00000004: /* Intel cache info (dumped by AMD policy) */
     case 0x0000000a: /* Architectural Performance Monitor Features */
+    case 0x00000014: /* Intel Processor Trace Features */
     case 0x80000002: /* Processor name string */
     case 0x80000003: /* ... continued         */
     case 0x80000004: /* ... continued         */
@@ -802,12 +803,19 @@ int xc_cpuid_apply_policy(xc_interface *xch, uint32_t domid,
                 continue;
         }
 
+        if ( input[0] == 0x14 )
+        {
+            input[1]++;
+            if ( input[1] == 1 )
+                continue;
+        }
+
         input[0]++;
         if ( !(input[0] & 0x80000000u) && (input[0] > base_max ) )
             input[0] = 0x80000000u;
 
         input[1] = XEN_CPUID_INPUT_UNUSED;
-        if ( (input[0] == 4) || (input[0] == 7) )
+        if ( (input[0] == 4) || (input[0] == 7) || (input[0] == 0x14) )
             input[1] = 0;
         else if ( input[0] == 0xd )
             input[1] = 1; /* Xen automatically calculates almost everything. */
