@@ -622,11 +622,13 @@ void vmx_pi_hooks_deassign(struct domain *d);
 typedef union ept_qual {
     unsigned long raw;
     struct {
-        bool read:1, write:1, fetch:1,
+        unsigned long read:1, write:1, fetch:1,
             eff_read:1, eff_write:1, eff_exec:1, /* eff_user_exec */:1,
             gla_valid:1,
-            gla_fault:1; /* Valid iff gla_valid. */
-        unsigned long /* pad */:55;
+            gla_fault:1, /* Valid iff gla_valid. */
+            :7,
+            async:1; /* Asynchronous to Instruction Execution (e.g. ipt) */
+        unsigned long /* pad */:47;
     };
 } __transparent__ ept_qual_t;
 

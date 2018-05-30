@@ -1708,7 +1708,7 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
     struct vcpu *curr = current;
     struct domain *currd = curr->domain;
     struct p2m_domain *p2m, *hostp2m;
-    int rc, fall_through = 0, paged = 0;
+    int rc = 0, fall_through = 0, paged = 0;
     int sharing_enomem = 0;
     unsigned int page_order = 0;
     vm_event_request_t *req_ptr = NULL;
@@ -1888,7 +1888,11 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
          (npfec.write_access &&
           (p2m_is_discard_write(p2mt) || (p2mt == p2m_ioreq_server))) )
     {
-        if ( !handle_mmio_with_translation(gla, gpa >> PAGE_SHIFT, npfec) )
+        /* Don't emulate and make guest crash when write to mmio address */
+        if ( npfec.async && (p2mt == p2m_mmio_dm) )
+            goto out_put_gfn;
+
+        if ( npfec.async || !handle_mmio_with_translation(gla, gpa >> PAGE_SHIFT, npfec) )
             hvm_inject_hw_exception(TRAP_gp_fault, 0);
         rc = 1;
         goto out_put_gfn;
