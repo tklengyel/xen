@@ -325,7 +325,9 @@ static u32 __init setup_tboot_mbi(void)
 
     xenmbi->efi_version = efi_version;
     xenmbi->efi_fw_revision = efi_fw_revision;
+#ifdef CONFIG_VGA
     xenmbi->vga_console_info = vga_console_info;
+#endif
     xenmbi->efi_ct = efi_ct;
     xenmbi->efi_num_ct = efi_num_ct;
     xenmbi->efi_memmap_size = efi_memmap_size;
@@ -414,7 +416,9 @@ static void __init read_tboot_mbi(void* data)
             /* These are integer fields that mostly don't need validation */
             efi_version = xenmbi->efi_version;
             efi_fw_revision = xenmbi->efi_fw_revision;
+#ifdef CONFIG_VGA
             vga_console_info = xenmbi->vga_console_info;
+#endif
 
             /* The EFI configuration table is parsed by Xen in efi_tables()
              * and is also used by Linux to find ACPI tables.
