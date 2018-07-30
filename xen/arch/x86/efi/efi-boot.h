@@ -267,13 +267,13 @@ static u32 __init setup_tboot_mbi(void)
     multiboot2_tag_module_t *module;
     multiboot2_tag_mmap_t *mmap;
     multiboot2_tag_xenefi_t *xenmbi;
-    void* str;
+    char* str;
 
     /* We construct a multiboot2 header for TBOOT: */
     mbi2_init();
 
     /* Command line */
-    str = (void*)(u64)mbi.cmdline;
+    str = (char*)(u64)mbi.cmdline;
     len = strlen(str) + 1;
     tag_str = mbi2_add_entry(sizeof(*tag_str) + len);
     tag_str->type = MULTIBOOT2_TAG_TYPE_CMDLINE;
@@ -295,7 +295,12 @@ static u32 __init setup_tboot_mbi(void)
 
     /* Modules */
     for(i=0; i < mbi.mods_count; i++) {
-        str = (void*)(u64)mb_modules[i].string;
+        str = (char*)(u64)mb_modules[i].string;
+
+        /* skip illegal characters in module string start */
+        while (str && *str<'0')
+            str++;
+
         len = strlen(str) + 1;
         module = mbi2_add_entry(sizeof(*module) + len);
         module->type = MULTIBOOT2_TAG_TYPE_MODULE;
