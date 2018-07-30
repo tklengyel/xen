@@ -587,6 +587,10 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
         efi_bs->FreePool(name.w);
     }
 
+    if ( shim_lock &&
+        (status = shim_lock->Measure(ucode.ptr, ucode.size, 8)) != EFI_SUCCESS )
+            PrintErrMesg(L"Microcode couldn't be measured", status);
+
     name.s = get_value(&cfg, section, "tboot");
     if ( !name.s )
         name.s = get_value(&cfg, "global", "tboot");
@@ -673,6 +677,10 @@ static void __init efi_arch_cfg_file_late(EFI_FILE_HANDLE dir_handle, char *sect
         read_file(dir_handle, s2w(&name), &sinit, NULL);
         efi_bs->FreePool(name.w);
         name.s = next_name;
+
+        if ( shim_lock &&
+            (status = shim_lock->Measure(sinit.ptr, sinit.size, 8)) != EFI_SUCCESS )
+                PrintErrMesg(L"Sinit module couldn't be measured", status);
     }
 }
 
