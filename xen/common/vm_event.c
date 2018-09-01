@@ -353,7 +353,7 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
     vm_event_response_t rsp;
 
     /*
-     * vm_event_resume() runs in either XEN_DOMCTL_VM_EVENT_OP_*, or
+     * vm_event_resume() runs in either XEN_VM_EVENT_* domctls, or
      * EVTCHN_send context from the introspection consumer. Both contexts
      * are guaranteed not to be the subject of vm_event responses.
      * While we could ASSERT(v != current) for each VCPU in d in the loop
@@ -580,7 +580,7 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
         return 0;
     }
 
-    rc = xsm_vm_event_control(XSM_PRIV, d, vec->mode, vec->op);
+    rc = xsm_vm_event_control(XSM_PRIV, d, vec->type, vec->op);
     if ( rc )
         return rc;
 
@@ -607,10 +607,10 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
 
     rc = -ENOSYS;
 
-    switch ( vec->mode )
+    switch ( vec->type )
     {
 #ifdef CONFIG_HAS_MEM_PAGING
-    case XEN_DOMCTL_VM_EVENT_OP_PAGING:
+    case XEN_VM_EVENT_TYPE_PAGING:
     {
         rc = -EINVAL;
 
@@ -666,7 +666,7 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
     break;
 #endif
 
-    case XEN_DOMCTL_VM_EVENT_OP_MONITOR:
+    case XEN_VM_EVENT_TYPE_MONITOR:
     {
         rc = -EINVAL;
 
@@ -704,7 +704,7 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
     break;
 
 #ifdef CONFIG_HAS_MEM_SHARING
-    case XEN_DOMCTL_VM_EVENT_OP_SHARING:
+    case XEN_VM_EVENT_TYPE_SHARING:
     {
         rc = -EINVAL;
 

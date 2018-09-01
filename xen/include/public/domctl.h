@@ -769,80 +769,18 @@ struct xen_domctl_gdbsx_domstatus {
  * VM event operations
  */
 
-/* XEN_DOMCTL_vm_event_op */
-
-/*
- * There are currently three rings available for VM events:
- * sharing, monitor and paging. This hypercall allows one to
- * control these rings (enable/disable), as well as to signal
- * to the hypervisor to pull responses (resume) from the given
- * ring.
+/* XEN_DOMCTL_vm_event_op.
+ * Use for teardown/setup of helper<->hypervisor interface for paging,
+ * access and sharing.
  */
 #define XEN_VM_EVENT_ENABLE               0
 #define XEN_VM_EVENT_DISABLE              1
 #define XEN_VM_EVENT_RESUME               2
 #define XEN_VM_EVENT_GET_VERSION          3
 
-/*
- * Domain memory paging
- * Page memory in and out.
- * Domctl interface to set up and tear down the
- * pager<->hypervisor interface. Use XENMEM_paging_op*
- * to perform per-page operations.
- *
- * The XEN_VM_EVENT_PAGING_ENABLE domctl returns several
- * non-standard error codes to indicate why paging could not be enabled:
- * ENODEV - host lacks HAP support (EPT/NPT) or HAP is disabled in guest
- * EMLINK - guest has iommu passthrough enabled
- * EXDEV  - guest has PoD enabled
- * EBUSY  - guest has or had paging enabled, ring buffer still active
- */
-#define XEN_DOMCTL_VM_EVENT_OP_PAGING            1
-
-/*
- * Monitor helper.
- *
- * As with paging, use the domctl for teardown/setup of the
- * helper<->hypervisor interface.
- *
- * The monitor interface can be used to register for various VM events. For
- * example, there are HVM hypercalls to set the per-page access permissions
- * of every page in a domain.  When one of these permissions--independent,
- * read, write, and execute--is violated, the VCPU is paused and a memory event
- * is sent with what happened. The memory event handler can then resume the
- * VCPU and redo the access with a XEN_VM_EVENT_RESUME option.
- *
- * See public/vm_event.h for the list of available events that can be
- * subscribed to via the monitor interface.
- *
- * The XEN_VM_EVENT_MONITOR_* domctls returns
- * non-standard error codes to indicate why access could not be enabled:
- * ENODEV - host lacks HAP support (EPT/NPT) or HAP is disabled in guest
- * EBUSY  - guest has or had access enabled, ring buffer still active
- *
- */
-#define XEN_DOMCTL_VM_EVENT_OP_MONITOR           2
-
-/*
- * Sharing ENOMEM helper.
- *
- * As with paging, use the domctl for teardown/setup of the
- * helper<->hypervisor interface.
- *
- * If setup, this ring is used to communicate failed allocations
- * in the unshare path. XENMEM_sharing_op_resume is used to wake up
- * vcpus that could not unshare.
- *
- * Note that shring can be turned on (as per the domctl below)
- * *without* this ring being setup.
- */
-#define XEN_DOMCTL_VM_EVENT_OP_SHARING           3
-
-/* Use for teardown/setup of helper<->hypervisor interface for paging,
- * access and sharing.*/
 struct xen_domctl_vm_event_op {
     uint32_t       op;           /* XEN_VM_EVENT_* */
-    uint32_t       mode;         /* XEN_DOMCTL_VM_EVENT_OP_* */
+    uint32_t       type;         /* XEN_VM_EVENT_TYPE_* */
 
     union {
         struct {
@@ -1004,7 +942,7 @@ struct xen_domctl_psr_cmt_op {
  * Enable/disable monitoring various VM events.
  * This domctl configures what events will be reported to helper apps
  * via the ring buffer "MONITOR". The ring has to be first enabled
- * with the domctl XEN_DOMCTL_VM_EVENT_OP_MONITOR.
+ * with XEN_VM_EVENT_ENABLE.
  *
  * GET_CAPABILITIES can be used to determine which of these features is
  * available on a given platform.

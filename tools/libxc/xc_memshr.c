@@ -53,7 +53,7 @@ int xc_memshr_ring_enable(xc_interface *xch,
 
     return xc_vm_event_control(xch, domid,
                                XEN_VM_EVENT_ENABLE,
-                               XEN_DOMCTL_VM_EVENT_OP_SHARING,
+                               XEN_VM_EVENT_TYPE_SHARING,
                                port);
 }
 
@@ -62,7 +62,7 @@ int xc_memshr_ring_disable(xc_interface *xch,
 {
     return xc_vm_event_control(xch, domid,
                                XEN_VM_EVENT_DISABLE,
-                               XEN_DOMCTL_VM_EVENT_OP_SHARING,
+                               XEN_VM_EVENT_TYPE_SHARING,
                                NULL);
 }
 
@@ -205,7 +205,7 @@ int xc_memshr_domain_resume(xc_interface *xch,
 {
     return xc_vm_event_control(xch, domid,
                                XEN_VM_EVENT_RESUME,
-                               XEN_DOMCTL_VM_EVENT_OP_SHARING,
+                               XEN_VM_EVENT_TYPE_SHARING,
                                NULL);
 }
 

@@ -36,6 +36,37 @@
 #include "io/ring.h"
 
 /*
+ * There are currently three types of VM events.
+ */
+
+/*
+ * Domain memory paging
+ *
+ * Page memory in and out.
+ */
+#define XEN_VM_EVENT_TYPE_PAGING         1
+
+/*
+ * Monitor.
+ *
+ * The monitor interface can be used to register for various VM events. For
+ * example, there are HVM hypercalls to set the per-page access permissions
+ * of every page in a domain.  When one of these permissions--independent,
+ * read, write, and execute--is violated, the VCPU is paused and a memory event
+ * is sent with what happened. The memory event handler can then resume the
+ * VCPU and redo the access with a XEN_VM_EVENT_RESUME option.
+ */
+#define XEN_VM_EVENT_TYPE_MONITOR        2
+
+/*
+ * Sharing ENOMEM.
+ *
+ * Used to communicate failed allocations in the unshare path.
+ * XENMEM_sharing_op_resume is used to wake up vcpus that could not unshare.
+ */
+#define XEN_VM_EVENT_TYPE_SHARING        3
+
+/*
  * Memory event flags
  */
 

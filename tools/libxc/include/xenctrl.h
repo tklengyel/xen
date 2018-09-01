@@ -46,6 +46,7 @@
 #include <xen/xsm/flask_op.h>
 #include <xen/kexec.h>
 #include <xen/platform.h>
+#include <xen/vm_event.h>
 
 #include "xentoollog.h"
 
