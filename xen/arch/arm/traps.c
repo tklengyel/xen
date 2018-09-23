@@ -1937,6 +1937,12 @@ static void do_trap_stage2_abort_guest(struct cpu_user_regs *regs,
         gpa = get_faulting_ipa(gva);
     else
     {
+        if ( unlikely(altp2m_active(current->domain)) ) {
+            rc = p2m_gva_to_ipa(p2m_get_hostp2m(current->domain), gva, &gpa, GV2M_READ);
+        } else {
+            rc = gva_to_ipa(gva, &gpa, GV2M_READ);
+        }
+
         /*
          * Flush the TLB to make sure the DTLB is clear before
          * doing GVA->IPA translation. If we got here because of
@@ -1944,9 +1950,11 @@ static void do_trap_stage2_abort_guest(struct cpu_user_regs *regs,
          * still be inaccurate.
          */
         if ( !is_data )
-            flush_tlb_local();
+        {
+            flush_tlb_ipas2le1is(gpa >> 12);
+            flush_tlb_vaale1is(gva >> 12);
+        }
 
-        rc = gva_to_ipa(gva, &gpa, GV2M_READ);
         /*
          * We may not be able to translate because someone is
          * playing with the Stage-2 page table of the domain.

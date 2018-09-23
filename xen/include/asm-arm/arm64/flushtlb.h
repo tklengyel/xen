@@ -12,6 +12,27 @@ static inline void flush_tlb_local(void)
         : : : "memory");
 }
 
+/* Flush local TLBs by IPA, Stage 2, Last Level, EL1, Inner Shareable */
+static inline void flush_tlb_ipas2le1is(unsigned long ipa)
+{
+    asm volatile(
+        "dsb sy;"
+        "tlbi ipas2le1is, %0;"
+        "dsb sy;"
+        "isb;"
+        : : "r" (ipa) : "memory");
+}
+/* Flush local TLBs by VA, All ASID, Last Level, E1, Inner Shareable */
+static inline void flush_tlb_vaale1is(unsigned long va)
+{
+    asm volatile(
+        "dsb sy;"
+        "tlbi vaale1is, %0;"
+        "dsb sy;"
+        "isb;"
+        : : "r" (va) : "memory");
+}
+
 /* Flush innershareable TLBs, current VMID only */
 static inline void flush_tlb(void)
 {
