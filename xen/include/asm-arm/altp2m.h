@@ -60,7 +60,8 @@ int altp2m_init_by_id(struct domain *d,
 
 /* Find and initialize the next available alternate p2m. */
 int altp2m_init_next_available(struct domain *d,
-                               uint16_t *idx);
+                               uint16_t *idx,
+                               bool duplicate);
 
 /* Flush all the alternate p2m's for a domain. */
 void altp2m_flush_complete(struct domain *d);

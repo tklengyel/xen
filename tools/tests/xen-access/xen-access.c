@@ -192,8 +192,6 @@ static int xenaccess_reset_gfn(xc_interface *xch,
     if ( rc < 0 )
         return -1;
 
-    (xenaccess->max_gpfn)--;
-
     return 0;
 }
 
@@ -655,7 +653,7 @@ int main(int argc, char *argv[])
             goto exit;
         }
 
-        rc = xc_altp2m_create_view( xch, domain_id, default_access, &altp2m_view_id );
+        rc = xc_altp2m_create_view( xch, domain_id, default_access, &altp2m_view_id, 1 );
         if ( rc < 0 )
         {
             ERROR("Error %d creating altp2m view!\n", rc);

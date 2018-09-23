@@ -230,6 +230,8 @@ struct xen_hvm_altp2m_view {
     /* Create view only: default access type
      * NOTE: currently ignored */
     uint16_t hvmmem_default_access; /* xenmem_access_t */
+    /* Create this view as an exact copy of the hostp2m */
+    uint8_t duplicate;
 };
 typedef struct xen_hvm_altp2m_view xen_hvm_altp2m_view_t;
 DEFINE_XEN_GUEST_HANDLE(xen_hvm_altp2m_view_t);

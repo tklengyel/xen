@@ -126,7 +126,7 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
         break;
 
     case HVMOP_altp2m_create_p2m:
-        if ( !(rc = altp2m_init_next_available(d, &a.u.view.view)) )
+        if ( !(rc = altp2m_init_next_available(d, &a.u.view.view, a.u.view.duplicate)) )
             rc = __copy_to_guest(arg, &a, 1) ? -EFAULT : 0;
         break;
 
