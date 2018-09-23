@@ -254,3 +254,27 @@ int xc_altp2m_set_mem_access_multi(xc_interface *xch, uint32_t domid,
 
     return rc;
 }
+
+int xc_altp2m_pair_vmid(xc_interface *handle, domid_t domid,
+                        uint16_t view_id1, uint16_t view_id2)
+{
+    int rc;
+    DECLARE_HYPERCALL_BUFFER(xen_hvm_altp2m_op_t, arg);
+
+    arg = xc_hypercall_buffer_alloc(handle, arg, sizeof(*arg));
+    if ( arg == NULL )
+        return -1;
+
+    arg->version = HVMOP_ALTP2M_INTERFACE_VERSION;
+    arg->cmd = HVMOP_altp2m_pair_vmid;
+    arg->domain = domid;
+    arg->u.pair_vmid.view1 = view_id1;
+    arg->u.pair_vmid.view2 = view_id2;
+
+    rc = xencall2(handle->xcall, __HYPERVISOR_hvm_op, HVMOP_altp2m,
+                  HYPERCALL_BUFFER_AS_ARG(arg));
+
+    xc_hypercall_buffer_free(handle, arg);
+
+    return rc;
+}

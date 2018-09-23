@@ -46,7 +46,7 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
     if ( a.pad1 || a.pad2 ||
          (a.version != HVMOP_ALTP2M_INTERFACE_VERSION) ||
          (a.cmd < HVMOP_altp2m_get_domain_state) ||
-         (a.cmd > HVMOP_altp2m_change_gfn) )
+         (a.cmd > HVMOP_altp2m_pair_vmid) )
         return -EINVAL;
 
     d = (a.cmd != HVMOP_altp2m_vcpu_enable_notify) ?
@@ -155,6 +155,12 @@ static int do_altp2m_op(XEN_GUEST_HANDLE_PARAM(void) arg)
                                    _gfn(a.u.change_gfn.old_gfn),
                                    _gfn(a.u.change_gfn.new_gfn));
         break;
+	case HVMOP_altp2m_pair_vmid:
+		if ( !a.u.pair_vmid.view1 || !a.u.pair_vmid.view2 )
+			rc = -EINVAL;
+		else
+			rc = altp2m_pair_vmid(d, a.u.pair_vmid.view1, a.u.pair_vmid.view2);
+		break;
     }
 
 out:

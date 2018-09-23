@@ -276,6 +276,13 @@ struct xen_hvm_altp2m_change_gfn {
 typedef struct xen_hvm_altp2m_change_gfn xen_hvm_altp2m_change_gfn_t;
 DEFINE_XEN_GUEST_HANDLE(xen_hvm_altp2m_change_gfn_t);
 
+struct xen_hvm_altp2m_pair_vmid {
+    uint16_t view1;
+    uint16_t view2;
+};
+typedef struct xen_hvm_altp2m_pair_vmid xen_hvm_altp2m_pair_vmid_t;
+DEFINE_XEN_GUEST_HANDLE(xen_hvm_altp2m_pair_vmid_t);
+
 struct xen_hvm_altp2m_op {
     uint32_t version;   /* HVMOP_ALTP2M_INTERFACE_VERSION */
     uint32_t cmd;
@@ -296,6 +303,8 @@ struct xen_hvm_altp2m_op {
 #define HVMOP_altp2m_change_gfn           8
 /* Set access for an array of pages */
 #define HVMOP_altp2m_set_mem_access_multi 9
+/* Equalize the VMIDs of the two given views */
+#define HVMOP_altp2m_pair_vmid            10
     domid_t domain;
     uint16_t pad1;
     uint32_t pad2;
@@ -306,6 +315,7 @@ struct xen_hvm_altp2m_op {
         struct xen_hvm_altp2m_set_mem_access       set_mem_access;
         struct xen_hvm_altp2m_change_gfn           change_gfn;
         struct xen_hvm_altp2m_set_mem_access_multi set_mem_access_multi;
+        struct xen_hvm_altp2m_pair_vmid            pair_vmid;
         uint8_t pad[64];
     } u;
 };

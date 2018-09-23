@@ -1967,6 +1967,9 @@ int xc_altp2m_set_mem_access_multi(xc_interface *handle, uint32_t domid,
 int xc_altp2m_change_gfn(xc_interface *handle, uint32_t domid,
                          uint16_t view_id, xen_pfn_t old_gfn,
                          xen_pfn_t new_gfn);
+int xc_altp2m_pair_vmid(xc_interface *handle, domid_t domid,
+			uint16_t view_id1, uint16_t view_id2);
+
 
 /** 
  * Mem paging operations.
