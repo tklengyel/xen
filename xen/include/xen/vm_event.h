@@ -29,8 +29,8 @@
 /* Clean up on domain destruction */
 void vm_event_cleanup(struct domain *d);
 
-/* Returns whether a ring has been set up */
-bool vm_event_check_ring(struct vm_event_domain *ved);
+/* Returns whether the VM event domain has been set up */
+bool vm_event_check(struct vm_event_domain *ved);
 
 /* Returns 0 on success, -ENOSYS if there is no ring, -EBUSY if there is no
  * available space and the caller is a foreign domain. If the guest itself

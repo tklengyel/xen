@@ -44,7 +44,7 @@ int mem_paging_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_paging_op_t) arg)
         goto out;
 
     rc = -ENODEV;
-    if ( unlikely(!vm_event_check_ring(d->vm_event_paging)) )
+    if ( unlikely(!vm_event_check(d->vm_event_paging)) )
         goto out;
 
     switch( mpo.op )

@@ -179,7 +179,7 @@ static int vm_event_disable(struct domain *d, struct vm_event_domain **p_ved)
 {
     struct vm_event_domain *ved = *p_ved;
 
-    if ( vm_event_check_ring(ved) )
+    if ( vm_event_check(ved) )
     {
         struct vcpu *v;
 
@@ -259,7 +259,7 @@ void vm_event_put_request(struct domain *d,
     RING_IDX req_prod;
     struct vcpu *curr = current;
 
-    if( !vm_event_check_ring(ved) )
+    if( !vm_event_check(ved) )
         return;
 
     if ( curr->domain != d )
@@ -362,7 +362,7 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
      */
     ASSERT(d != current->domain);
 
-    if ( unlikely(!vm_event_check_ring(ved)) )
+    if ( unlikely(!vm_event_check(ved)) )
          return -ENODEV;
 
     /* Pull all responses off the ring. */
@@ -433,7 +433,7 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
 
 void vm_event_cancel_slot(struct domain *d, struct vm_event_domain *ved)
 {
-    if( !vm_event_check_ring(ved) )
+    if( !vm_event_check(ved) )
         return;
 
     spin_lock(&ved->lock);
@@ -488,7 +488,7 @@ static int vm_event_wait_slot(struct vm_event_domain *ved)
     return rc;
 }
 
-bool vm_event_check_ring(struct vm_event_domain *ved)
+bool vm_event_check(struct vm_event_domain *ved)
 {
     return ved && ved->ring_page;
 }
@@ -508,7 +508,7 @@ bool vm_event_check_ring(struct vm_event_domain *ved)
 int __vm_event_claim_slot(struct domain *d, struct vm_event_domain *ved,
                           bool allow_sleep)
 {
-    if ( !vm_event_check_ring(ved) )
+    if ( !vm_event_check(ved) )
         return -EOPNOTSUPP;
 
     if ( (current->domain == d) && allow_sleep )
@@ -543,7 +543,7 @@ static void mem_sharing_notification(struct vcpu *v, unsigned int port)
 void vm_event_cleanup(struct domain *d)
 {
 #ifdef CONFIG_HAS_MEM_PAGING
-    if ( vm_event_check_ring(d->vm_event_paging) )
+    if ( vm_event_check(d->vm_event_paging) )
     {
         /* Destroying the wait queue head means waking up all
          * queued vcpus. This will drain the list, allowing
@@ -556,13 +556,13 @@ void vm_event_cleanup(struct domain *d)
         (void)vm_event_disable(d, &d->vm_event_paging);
     }
 #endif
-    if ( vm_event_check_ring(d->vm_event_monitor) )
+    if ( vm_event_check(d->vm_event_monitor) )
     {
         destroy_waitqueue_head(&d->vm_event_monitor->wq);
         (void)vm_event_disable(d, &d->vm_event_monitor);
     }
 #ifdef CONFIG_HAS_MEM_SHARING
-    if ( vm_event_check_ring(d->vm_event_share) )
+    if ( vm_event_check(d->vm_event_share) )
     {
         destroy_waitqueue_head(&d->vm_event_share->wq);
         (void)vm_event_disable(d, &d->vm_event_share);
@@ -646,7 +646,7 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
         break;
 
         case XEN_VM_EVENT_DISABLE:
-            if ( vm_event_check_ring(d->vm_event_paging) )
+            if ( vm_event_check(d->vm_event_paging) )
             {
                 domain_pause(d);
                 rc = vm_event_disable(d, &d->vm_event_paging);
@@ -683,7 +683,7 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
             break;
 
         case XEN_VM_EVENT_DISABLE:
-            if ( vm_event_check_ring(d->vm_event_monitor) )
+            if ( vm_event_check(d->vm_event_monitor) )
             {
                 domain_pause(d);
                 rc = vm_event_disable(d, &d->vm_event_monitor);
@@ -728,7 +728,7 @@ int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec)
             break;
 
         case XEN_VM_EVENT_DISABLE:
-            if ( vm_event_check_ring(d->vm_event_share) )
+            if ( vm_event_check(d->vm_event_share) )
             {
                 domain_pause(d);
                 rc = vm_event_disable(d, &d->vm_event_share);
