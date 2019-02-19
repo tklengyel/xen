@@ -93,7 +93,7 @@ int monitor_traps(struct vcpu *v, bool sync, vm_event_request_t *req)
     int rc;
     struct domain *d = v->domain;
 
-    rc = vm_event_claim_slot(d, d->vm_event_monitor);
+    rc = vm_event_claim_slot(d->vm_event_monitor);
     switch ( rc )
     {
     case 0:
@@ -125,7 +125,7 @@ int monitor_traps(struct vcpu *v, bool sync, vm_event_request_t *req)
     }
 
     vm_event_fill_regs(req);
-    vm_event_put_request(d, d->vm_event_monitor, req);
+    vm_event_put_request(d->vm_event_monitor, req);
 
     return rc;
 }

@@ -45,23 +45,20 @@ bool vm_event_check(struct vm_event_domain *ved);
  * cancel_slot(), both of which are guaranteed to
  * succeed.
  */
-int __vm_event_claim_slot(struct domain *d, struct vm_event_domain *ved,
-                          bool allow_sleep);
-static inline int vm_event_claim_slot(struct domain *d,
-                                      struct vm_event_domain *ved)
+int __vm_event_claim_slot(struct vm_event_domain *ved, bool allow_sleep);
+static inline int vm_event_claim_slot(struct vm_event_domain *ved)
 {
-    return __vm_event_claim_slot(d, ved, true);
+    return __vm_event_claim_slot(ved, true);
 }
 
-static inline int vm_event_claim_slot_nosleep(struct domain *d,
-                                              struct vm_event_domain *ved)
+static inline int vm_event_claim_slot_nosleep(struct vm_event_domain *ved)
 {
-    return __vm_event_claim_slot(d, ved, false);
+    return __vm_event_claim_slot(ved, false);
 }
 
-void vm_event_cancel_slot(struct domain *d, struct vm_event_domain *ved);
+void vm_event_cancel_slot(struct vm_event_domain *ved);
 
-void vm_event_put_request(struct domain *d, struct vm_event_domain *ved,
+void vm_event_put_request(struct vm_event_domain *ved,
                           vm_event_request_t *req);
 
 int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec);

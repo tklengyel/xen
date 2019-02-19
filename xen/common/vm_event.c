@@ -119,10 +119,11 @@ static unsigned int vm_event_ring_available(struct vm_event_domain *ved)
  * but need to be resumed where the ring is capable of processing at least
  * one event from them.
  */
-static void vm_event_wake_blocked(struct domain *d, struct vm_event_domain *ved)
+static void vm_event_wake_blocked(struct vm_event_domain *ved)
 {
     struct vcpu *v;
     unsigned int i, j, k, avail_req = vm_event_ring_available(ved);
+    struct domain *d = ved->d;
 
     if ( avail_req == 0 || ved->blocked == 0 )
         return;
@@ -154,7 +155,7 @@ static void vm_event_wake_blocked(struct domain *d, struct vm_event_domain *ved)
  * was unable to do so, it is queued on a wait queue.  These are woken as
  * needed, and take precedence over the blocked vCPUs.
  */
-static void vm_event_wake_queued(struct domain *d, struct vm_event_domain *ved)
+static void vm_event_wake_queued(struct vm_event_domain *ved)
 {
     unsigned int avail_req = vm_event_ring_available(ved);
 
@@ -169,12 +170,12 @@ static void vm_event_wake_queued(struct domain *d, struct vm_event_domain *ved)
  * call vm_event_wake() again, ensuring that any blocked vCPUs will get
  * unpaused once all the queued vCPUs have made it through.
  */
-void vm_event_wake(struct domain *d, struct vm_event_domain *ved)
+void vm_event_wake(struct vm_event_domain *ved)
 {
     if ( !list_empty(&ved->wq.list) )
-        vm_event_wake_queued(d, ved);
+        vm_event_wake_queued(ved);
     else
-        vm_event_wake_blocked(d, ved);
+        vm_event_wake_blocked(ved);
 }
 
 static int vm_event_disable(struct domain *d, struct vm_event_domain **p_ved)
@@ -219,17 +220,16 @@ static int vm_event_disable(struct domain *d, struct vm_event_domain **p_ved)
     return 0;
 }
 
-static void vm_event_release_slot(struct domain *d,
-                                  struct vm_event_domain *ved)
+static void vm_event_release_slot(struct vm_event_domain *ved)
 {
     /* Update the accounting */
-    if ( current->domain == d )
+    if ( current->domain == ved->d )
         ved->target_producers--;
     else
         ved->foreign_producers--;
 
     /* Kick any waiters */
-    vm_event_wake(d, ved);
+    vm_event_wake(ved);
 }
 
 /*
@@ -251,8 +251,7 @@ static void vm_event_mark_and_pause(struct vcpu *v, struct vm_event_domain *ved)
  * overly full and its continued execution would cause stalling and excessive
  * waiting.  The vCPU will be automatically unpaused when the ring clears.
  */
-void vm_event_put_request(struct domain *d,
-                          struct vm_event_domain *ved,
+void vm_event_put_request(struct vm_event_domain *ved,
                           vm_event_request_t *req)
 {
     vm_event_front_ring_t *front_ring;
@@ -260,6 +259,7 @@ void vm_event_put_request(struct domain *d,
     unsigned int avail_req;
     RING_IDX req_prod;
     struct vcpu *curr = current;
+    struct domain *d = ved->d;
 
     if( !vm_event_check(ved) )
         return;
@@ -292,7 +292,7 @@ void vm_event_put_request(struct domain *d,
     RING_PUSH_REQUESTS(front_ring);
 
     /* We've actually *used* our reservation, so release the slot. */
-    vm_event_release_slot(d, ved);
+    vm_event_release_slot(ved);
 
     /* Give this vCPU a black eye if necessary, on the way out.
      * See the comments above wake_blocked() for more information
@@ -332,7 +332,7 @@ static int vm_event_get_response(struct domain *d, struct vm_event_domain *ved,
 
     /* Kick any waiters -- since we've just consumed an event,
      * there may be additional space available in the ring. */
-    vm_event_wake(d, ved);
+    vm_event_wake(ved);
 
     rc = 1;
 
@@ -433,13 +433,13 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
     return 0;
 }
 
-void vm_event_cancel_slot(struct domain *d, struct vm_event_domain *ved)
+void vm_event_cancel_slot(struct vm_event_domain *ved)
 {
     if( !vm_event_check(ved) )
         return;
 
     spin_lock(&ved->lock);
-    vm_event_release_slot(d, ved);
+    vm_event_release_slot(ved);
     spin_unlock(&ved->lock);
 }
 
@@ -507,16 +507,15 @@ bool vm_event_check(struct vm_event_domain *ved)
  *               0: a spot has been reserved
  *
  */
-int __vm_event_claim_slot(struct domain *d, struct vm_event_domain *ved,
-                          bool allow_sleep)
+int __vm_event_claim_slot(struct vm_event_domain *ved, bool allow_sleep)
 {
     if ( !vm_event_check(ved) )
         return -EOPNOTSUPP;
 
-    if ( (current->domain == d) && allow_sleep )
+    if ( (current->domain == ved->d) && allow_sleep )
         return vm_event_wait_slot(ved);
     else
-        return vm_event_grab_slot(ved, current->domain != d);
+        return vm_event_grab_slot(ved, current->domain != ved->d);
 }
 
 #ifdef CONFIG_HAS_MEM_PAGING
