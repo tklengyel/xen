@@ -412,13 +412,23 @@ int xc_ffs64(uint64_t x);
  * vm_event operations. Internal use only.
  */
 int xc_vm_event_control(xc_interface *xch, uint32_t domain_id, unsigned int op,
-                        unsigned int type, uint32_t *port);
+                        unsigned int type, unsigned int flags, uint32_t *port);
+int xc_vm_event_resume(xc_interface *xch, uint32_t domain_id, unsigned int type,
+                       unsigned int flags);
 /*
  * Enables vm_event and returns the mapped ring page indicated by type.
  * type can be XEN_VM_EVENT_TYPE_(PAGING/MONITOR/SHARING)
  */
 void *xc_vm_event_enable(xc_interface *xch, uint32_t domain_id, int type,
                          uint32_t *port);
+/*
+ * Enables/Disables vm_event using the new interface.
+ */
+int xc_vm_event_ng_enable(xc_interface *xch, uint32_t domain_id, int type,
+                          xenforeignmemory_resource_handle **fres,
+                          int *num_channels, void **p_addr);
+int xc_vm_event_ng_disable(xc_interface *xch, uint32_t domain_id, int type,
+                          xenforeignmemory_resource_handle **fres);
 
 int do_dm_op(xc_interface *xch, uint32_t domid, unsigned int nr_bufs, ...);
 

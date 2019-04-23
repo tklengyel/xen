@@ -30,14 +30,17 @@
 
 struct domain;
 struct vm_event_domain;
+struct xen_domctl_vm_event_op;
 
 struct vm_event_ops
 {
     bool (*check)(struct vm_event_domain *ved);
-    void (*cleanup)(struct vm_event_domain **_ved);
-    int (*claim_slot)(struct vm_event_domain *ved, bool allow_sleep);
+    void (*cleanup)(struct vm_event_domain *p_ved);
+    int  (*claim_slot)(struct vm_event_domain *ved, bool allow_sleep);
     void (*cancel_slot)(struct vm_event_domain *ved);
+    int  (*disable)(struct vm_event_domain **p_ved);
     void (*put_request)(struct vm_event_domain *ved, vm_event_request_t *req);
+    int  (*resume)(struct vm_event_domain *ved, struct vcpu *v);
 };
 
 struct vm_event_domain
@@ -110,6 +113,10 @@ static inline void vm_event_put_request(struct vm_event_domain *ved,
 }
 
 int vm_event_domctl(struct domain *d, struct xen_domctl_vm_event_op *vec);
+
+int vm_event_ng_get_frames(struct domain *d, unsigned int id,
+                           unsigned long frame, unsigned int nr_frames,
+                           xen_pfn_t mfn_list[]);
 
 void vm_event_vcpu_pause(struct vcpu *v);
 void vm_event_vcpu_unpause(struct vcpu *v);

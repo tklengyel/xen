@@ -33,15 +33,12 @@ int xc_monitor_disable(xc_interface *xch, uint32_t domain_id)
     return xc_vm_event_control(xch, domain_id,
                                XEN_VM_EVENT_DISABLE,
                                XEN_VM_EVENT_TYPE_MONITOR,
-                               NULL);
+                               0, NULL);
 }
 
 int xc_monitor_resume(xc_interface *xch, uint32_t domain_id)
 {
-    return xc_vm_event_control(xch, domain_id,
-                               XEN_VM_EVENT_RESUME,
-                               XEN_VM_EVENT_TYPE_MONITOR,
-                               NULL);
+    return xc_vm_event_resume(xch, domain_id, XEN_VM_EVENT_TYPE_MONITOR, 0);
 }
 
 int xc_monitor_get_capabilities(xc_interface *xch, uint32_t domain_id,
@@ -244,6 +241,22 @@ int xc_monitor_emul_unimplemented(xc_interface *xch, uint32_t domain_id,
     domctl.u.monitor_op.event = XEN_DOMCTL_MONITOR_EVENT_EMUL_UNIMPLEMENTED;
 
     return do_domctl(xch, &domctl);
+}
+
+int xc_monitor_ng_enable(xc_interface *xch, uint32_t domain_id,
+                         xenforeignmemory_resource_handle **fres,
+                         int *num_channels, void **p_addr)
+{
+    return xc_vm_event_ng_enable(xch, domain_id, XEN_VM_EVENT_TYPE_MONITOR,
+                                 fres, num_channels, p_addr);
+}
+
+
+int xc_monitor_ng_disable(xc_interface *xch, uint32_t domain_id,
+                          xenforeignmemory_resource_handle **fres)
+{
+    return xc_vm_event_ng_disable(xch, domain_id, XEN_VM_EVENT_TYPE_MONITOR,
+                                  fres);
 }
 
 /*

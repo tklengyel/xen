@@ -22,8 +22,12 @@
 
 #include "xc_private.h"
 
+#ifndef PFN_UP
+#define PFN_UP(x)     (((x) + XC_PAGE_SIZE-1) >> XC_PAGE_SHIFT)
+#endif /* PFN_UP */
+
 int xc_vm_event_control(xc_interface *xch, uint32_t domain_id, unsigned int op,
-                        unsigned int type, uint32_t *port)
+                        unsigned int type, unsigned int flags, uint32_t *port)
 {
     DECLARE_DOMCTL;
     int rc;
@@ -32,6 +36,7 @@ int xc_vm_event_control(xc_interface *xch, uint32_t domain_id, unsigned int op,
     domctl.domain = domain_id;
     domctl.u.vm_event_op.op = op;
     domctl.u.vm_event_op.type = type;
+    domctl.u.vm_event_op.flags = flags;
 
     rc = do_domctl(xch, &domctl);
     if ( !rc && port )
@@ -113,7 +118,7 @@ void *xc_vm_event_enable(xc_interface *xch, uint32_t domain_id, int type,
         goto out;
     }
 
-    rc1 = xc_vm_event_control(xch, domain_id, XEN_VM_EVENT_ENABLE, type, port);
+    rc1 = xc_vm_event_control(xch, domain_id, XEN_VM_EVENT_ENABLE, type, 0, port);
     if ( rc1 != 0 )
     {
         PERROR("Failed to enable vm_event\n");
@@ -162,6 +167,97 @@ int xc_vm_event_get_version(xc_interface *xch)
     if ( !rc )
         rc = domctl.u.vm_event_op.u.version;
     return rc;
+}
+
+int xc_vm_event_resume(xc_interface *xch, uint32_t domain_id,
+                       unsigned int type, unsigned int flags)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_vm_event_op;
+    domctl.domain = domain_id;
+    domctl.u.vm_event_op.op = XEN_VM_EVENT_RESUME;
+    domctl.u.vm_event_op.type = type;
+    domctl.u.vm_event_op.flags = flags;
+    domctl.u.vm_event_op.u.resume.vcpu_id = 0;
+
+    return do_domctl(xch, &domctl);
+}
+
+int xc_vm_event_ng_enable(xc_interface *xch, uint32_t domain_id, int type,
+                          xenforeignmemory_resource_handle **fres,
+                          int *num_channels, void **p_addr)
+{
+    int rc1, rc2;
+    xc_dominfo_t info;
+    unsigned long nr_frames;
+
+    if ( !fres || !num_channels || ! p_addr )
+        return -EINVAL;
+
+    /* Get the numbers of vcpus */
+    if ( xc_domain_getinfo(xch, domain_id, 1, &info) != 1 ||
+         info.domid != domain_id )
+    {
+        PERROR("xc_domain_getinfo failed.\n");
+        return -ESRCH;
+    }
+
+    *num_channels = info.max_vcpu_id + 1;
+
+    rc1 = xc_domain_pause(xch, domain_id);
+    if ( rc1 )
+    {
+        PERROR("Unable to pause domain\n");
+        return rc1;
+    }
+
+    rc1 = xc_vm_event_control(xch, domain_id, XEN_VM_EVENT_ENABLE,
+                              type, XEN_VM_EVENT_FLAGS_NG_OP, NULL);
+    if ( rc1 )
+    {
+        PERROR("Failed to enable vm_event\n");
+        goto out;
+    }
+
+    nr_frames = PFN_UP(*num_channels * sizeof(struct vm_event_slot));
+
+    *fres = xenforeignmemory_map_resource(xch->fmem, domain_id,
+                                          XENMEM_resource_vm_event,
+                                          XEN_VM_EVENT_TYPE_MONITOR, 0,
+                                          nr_frames, p_addr,
+                                          PROT_READ | PROT_WRITE, 0);
+    if ( !*fres )
+    {
+        xc_vm_event_control(xch, domain_id, XEN_VM_EVENT_DISABLE,
+                            type, XEN_VM_EVENT_FLAGS_NG_OP, NULL);
+        ERROR("Failed to map vm_event resource");
+        rc1 = -errno;
+        goto out;
+    }
+
+out:
+    rc2 = xc_domain_unpause(xch, domain_id);
+    if ( rc1 || rc2 )
+    {
+        if ( rc2 )
+            PERROR("Unable to pause domain\n");
+
+        if ( rc1 == 0 )
+            rc1 = rc2;
+    }
+
+    return rc1;
+}
+
+int xc_vm_event_ng_disable(xc_interface *xch, uint32_t domain_id, int type,
+                           xenforeignmemory_resource_handle **fres)
+{
+    xenforeignmemory_unmap_resource(xch->fmem, *fres);
+    *fres = NULL;
+
+    return xc_vm_event_control(xch, domain_id, XEN_VM_EVENT_DISABLE,
+                              type, XEN_VM_EVENT_FLAGS_NG_OP, NULL);
 }
 
 /*

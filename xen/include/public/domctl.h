@@ -38,7 +38,7 @@
 #include "hvm/save.h"
 #include "memory.h"
 
-#define XEN_DOMCTL_INTERFACE_VERSION 0x00000011
+#define XEN_DOMCTL_INTERFACE_VERSION 0x00000012
 
 /*
  * NB. xen_domctl.domain is an IN/OUT parameter for this operation.
@@ -781,11 +781,19 @@ struct xen_domctl_gdbsx_domstatus {
 struct xen_domctl_vm_event_op {
     uint32_t       op;           /* XEN_VM_EVENT_* */
     uint32_t       type;         /* XEN_VM_EVENT_TYPE_* */
+ /* Use the NG interface */
+#define _XEN_VM_EVENT_FLAGS_NG_OP         0
+#define XEN_VM_EVENT_FLAGS_NG_OP          (1U << _XEN_VM_EVENT_FLAGS_NG_OP)
+    uint32_t       flags;
 
     union {
         struct {
             uint32_t port;       /* OUT: event channel for ring */
         } enable;
+
+        struct {
+            uint32_t vcpu_id;    /* IN: vcpu_id*/
+        } resume;
 
         uint32_t version;
     } u;

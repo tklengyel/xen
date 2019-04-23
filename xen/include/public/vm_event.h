@@ -421,6 +421,22 @@ typedef struct vm_event_st {
 
 DEFINE_RING_TYPES(vm_event, vm_event_request_t, vm_event_response_t);
 
+/* VM Event slot state */
+#define STATE_VM_EVENT_SLOT_IDLE     0 /* the slot data is invalid */
+#define STATE_VM_EVENT_SLOT_SUBMIT   1 /* a request was submitted */
+#define STATE_VM_EVENT_SLOT_FINISH   2 /* a response was issued */
+
+struct vm_event_slot
+{
+    uint32_t port;      /* evtchn for notifications to/from helper */
+    uint32_t state:4;
+    uint32_t pad:28;
+    union {
+        vm_event_request_t req;
+        vm_event_response_t rsp;
+    } u;
+};
+
 #endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
 #endif /* _XEN_PUBLIC_VM_EVENT_H */
 
