@@ -923,7 +923,7 @@ static void complete_domain_destroy(struct rcu_head *head)
     xfree(d->vm_event_paging);
 #endif
     xfree(d->vm_event_monitor);
-#ifdef CONFIG_HAS_MEM_SHARING
+#ifdef CONFIG_MEM_SHARING
     xfree(d->vm_event_share);
 #endif
 
