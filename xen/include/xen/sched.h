@@ -279,6 +279,8 @@ struct vcpu
 /* VM event */
 struct vm_event_domain
 {
+    /* Domain reference */
+    struct domain *d;
     spinlock_t lock;
     /* The ring has 64 entries */
     unsigned char foreign_producers;
