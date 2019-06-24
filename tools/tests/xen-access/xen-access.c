@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <poll.h>
+#include <getopt.h>
 
 #include <xenctrl.h>
 #include <xenevtchn.h>
@@ -397,93 +398,102 @@ int main(int argc, char *argv[])
     uint16_t altp2m_view_id = 0;
 
     char* progname = argv[0];
-    argv++;
-    argc--;
-
-    if ( argc == 3 && argv[0][0] == '-' )
+    char* command;
+    int c;
+    int option_index;
+    struct option long_options[] =
     {
-        if ( !strcmp(argv[0], "-m") )
-            required = 1;
-        else
+        { "mem-access-listener", no_argument, 0, 'm' },
+    };
+
+    while ( 1 )
+    {
+        c = getopt_long(argc, argv, "m", long_options, &option_index);
+        if ( c == -1 )
+            break;
+
+        switch ( c )
         {
+        case 'm':
+            required = 1;
+            break;
+
+        default:
             usage(progname);
             return -1;
         }
-        argv++;
-        argc--;
     }
 
-    if ( argc != 2 )
+    if ( argc - optind != 2 )
     {
         usage(progname);
         return -1;
     }
 
-    domain_id = atoi(argv[0]);
-    argv++;
-    argc--;
+    domain_id = atoi(argv[optind++]);
+    command = argv[optind];
 
-    if ( !strcmp(argv[0], "write") )
+    if ( !strcmp(command, "write") )
     {
         default_access = XENMEM_access_rx;
         after_first_access = XENMEM_access_rwx;
         memaccess = 1;
     }
-    else if ( !strcmp(argv[0], "exec") )
+    else if ( !strcmp(command, "exec") )
     {
         default_access = XENMEM_access_rw;
         after_first_access = XENMEM_access_rwx;
         memaccess = 1;
     }
 #if defined(__i386__) || defined(__x86_64__)
-    else if ( !strcmp(argv[0], "breakpoint") )
+    else if ( !strcmp(command, "breakpoint") )
     {
         breakpoint = 1;
     }
-    else if ( !strcmp(argv[0], "altp2m_write") )
+    else if ( !strcmp(command, "altp2m_write") )
     {
         default_access = XENMEM_access_rx;
         altp2m = 1;
         memaccess = 1;
     }
-    else if ( !strcmp(argv[0], "altp2m_exec") )
+    else if ( !strcmp(command, "altp2m_exec") )
     {
         default_access = XENMEM_access_rw;
         altp2m = 1;
         memaccess = 1;
     }
-    else if ( !strcmp(argv[0], "altp2m_write_no_gpt") )
+    else if ( !strcmp(command, "altp2m_write_no_gpt") )
     {
         default_access = XENMEM_access_rw;
         altp2m_write_no_gpt = 1;
         memaccess = 1;
         altp2m = 1;
     }
-    else if ( !strcmp(argv[0], "debug") )
+    else if ( !strcmp(command, "debug") )
     {
         debug = 1;
     }
-    else if ( !strcmp(argv[0], "cpuid") )
+    else if ( !strcmp(command, "cpuid") )
     {
         cpuid = 1;
     }
-    else if ( !strcmp(argv[0], "desc_access") )
+    else if ( !strcmp(command, "desc_access") )
     {
         desc_access = 1;
     }
-    else if ( !strcmp(argv[0], "write_ctrlreg_cr4") )
+    else if ( !strcmp(command, "write_ctrlreg_cr4") )
     {
         write_ctrlreg_cr4 = 1;
     }
 #elif defined(__arm__) || defined(__aarch64__)
-    else if ( !strcmp(argv[0], "privcall") )
+    else if ( !strcmp(command, "privcall") )
     {
         privcall = 1;
     }
 #endif
     else
     {
-        usage(argv[0]);
+        usage(command);
         return -1;
     }
 
@@ -494,7 +504,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    DPRINTF("starting %s %u\n", argv[0], domain_id);
+    DPRINTF("starting %s %u\n", command, domain_id);
 
     /* ensure that if we get a signal, we'll do cleanup, then exit */
     act.sa_handler = close_handler;
