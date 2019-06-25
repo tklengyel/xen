@@ -137,7 +137,7 @@ int xenaccess_teardown(xc_interface *xch, xenaccess_t *xenaccess)
         return 0;
 
     /* Tear down domain xenaccess in Xen */
-    if ( xenaccess->vm_event.ring_page )
+    if ( xenaccess->vm_event.ring_page != NULL )
         munmap(xenaccess->vm_event.ring_page, XC_PAGE_SIZE);
 
     if ( mem_access_enable )
@@ -195,7 +195,7 @@ xenaccess_t *xenaccess_init(xc_interface **xch_r, domid_t domain_id)
     int rc;
 
     xch = xc_interface_open(NULL, NULL, 0);
-    if ( !xch )
+    if ( xch == NULL )
         goto err_iface;
 
     DPRINTF("xenaccess init\n");
@@ -218,16 +218,17 @@ xenaccess_t *xenaccess_init(xc_interface **xch_r, domid_t domain_id)
                               &xenaccess->vm_event.evtchn_port);
     if ( xenaccess->vm_event.ring_page == NULL )
     {
-        switch ( errno ) {
-            case EBUSY:
-                ERROR("xenaccess is (or was) active on this domain");
-                break;
-            case ENODEV:
-                ERROR("EPT not supported for this guest");
-                break;
-            default:
-                perror("Error enabling mem_access");
-                break;
+        switch ( errno )
+        {
+        case EBUSY:
+            ERROR("xenaccess is (or was) active on this domain");
+            break;
+        case ENODEV:
+            ERROR("EPT not supported for this guest");
+            break;
+        default:
+            perror("Error enabling mem_access");
+            break;
         }
         goto err;
     }
@@ -283,15 +284,12 @@ xenaccess_t *xenaccess_init(xc_interface **xch_r, domid_t domain_id)
     }
 
  err_iface:
+
     return NULL;
 }
 
-static inline
-int control_singlestep(
-    xc_interface *xch,
-    domid_t domain_id,
-    unsigned long vcpu,
-    bool enable)
+static inline int control_singlestep(xc_interface *xch, domid_t domain_id,
+                                     unsigned long vcpu, bool enable)
 {
     uint32_t op = enable ?
         XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_ON : XEN_DOMCTL_DEBUG_OP_SINGLE_STEP_OFF;
@@ -361,11 +359,11 @@ void usage(char* progname)
 {
     fprintf(stderr, "Usage: %s [-m] <domain_id> write|exec", progname);
 #if defined(__i386__) || defined(__x86_64__)
-            fprintf(stderr, "|breakpoint|altp2m_write|altp2m_exec|debug|cpuid|desc_access|write_ctrlreg_cr4|altp2m_write_no_gpt");
+    fprintf(stderr, "|breakpoint|altp2m_write|altp2m_exec|debug|cpuid|desc_access|write_ctrlreg_cr4|altp2m_write_no_gpt");
 #elif defined(__arm__) || defined(__aarch64__)
-            fprintf(stderr, "|privcall");
+    fprintf(stderr, "|privcall");
 #endif
-            fprintf(stderr,
+    fprintf(stderr,
             "\n"
             "Logs first page writes, execs, or breakpoint traps that occur on the domain.\n"
             "\n"
@@ -562,7 +560,7 @@ int main(int argc, char *argv[])
         DPRINTF("altp2m view created with id %u\n", altp2m_view_id);
         DPRINTF("Setting altp2m mem_access permissions.. ");
 
-        for(; gfn < xenaccess->max_gpfn; ++gfn)
+        for( ; gfn < xenaccess->max_gpfn; ++gfn )
         {
             rc = xc_altp2m_set_mem_access( xch, domain_id, altp2m_view_id, gfn,
                                            default_access);
@@ -671,7 +669,7 @@ int main(int argc, char *argv[])
     }
 
     /* Wait for access */
-    for (;;)
+    for ( ; ; )
     {
         if ( interrupted )
         {
@@ -736,7 +734,8 @@ int main(int argc, char *argv[])
             rsp.flags = (req.flags & VM_EVENT_FLAG_VCPU_PAUSED);
             rsp.reason = req.reason;
 
-            switch (req.reason) {
+            switch ( req.reason )
+            {
             case VM_EVENT_REASON_MEM_ACCESS:
                 if ( !shutting_down )
                 {
@@ -791,6 +790,7 @@ int main(int argc, char *argv[])
 
                 rsp.u.mem_access = req.u.mem_access;
                 break;
+
             case VM_EVENT_REASON_SOFTWARE_BREAKPOINT:
                 printf("Breakpoint: rip=%016"PRIx64", gfn=%"PRIx64" (vcpu %d)\n",
                        req.data.regs.x86.rip,
@@ -809,6 +809,7 @@ int main(int argc, char *argv[])
                     continue;
                 }
                 break;
+
             case VM_EVENT_REASON_PRIVILEGED_CALL:
                 printf("Privileged call: pc=%"PRIx64" (vcpu %d)\n",
                        req.data.regs.arm.pc,
@@ -818,6 +819,7 @@ int main(int argc, char *argv[])
                 rsp.data.regs.arm.pc += 4;
                 rsp.flags |= VM_EVENT_FLAG_SET_REGISTERS;
                 break;
+
             case VM_EVENT_REASON_SINGLESTEP:
                 printf("Singlestep: rip=%016"PRIx64", vcpu %d, altp2m %u\n",
                        req.data.regs.x86.rip,
@@ -835,6 +837,7 @@ int main(int argc, char *argv[])
                 rsp.flags |= VM_EVENT_FLAG_TOGGLE_SINGLESTEP;
 
                 break;
+
             case VM_EVENT_REASON_DEBUG_EXCEPTION:
                 printf("Debug exception: rip=%016"PRIx64", vcpu %d. Type: %u. Length: %u\n",
                        req.data.regs.x86.rip,
@@ -856,6 +859,7 @@ int main(int argc, char *argv[])
                 }
 
                 break;
+
             case VM_EVENT_REASON_CPUID:
                 printf("CPUID executed: rip=%016"PRIx64", vcpu %d. Insn length: %"PRIu32" " \
                        "0x%"PRIx32" 0x%"PRIx32": EAX=0x%"PRIx64" EBX=0x%"PRIx64" ECX=0x%"PRIx64" EDX=0x%"PRIx64"\n",
@@ -872,6 +876,7 @@ int main(int argc, char *argv[])
                 rsp.data = req.data;
                 rsp.data.regs.x86.rip += req.u.cpuid.insn_length;
                 break;
+
             case VM_EVENT_REASON_DESCRIPTOR_ACCESS:
                 printf("Descriptor access: rip=%016"PRIx64", vcpu %d: "\
                        "VMExit info=0x%"PRIx32", descriptor=%d, is write=%d\n",
@@ -882,6 +887,7 @@ int main(int argc, char *argv[])
                        req.u.desc_access.is_write);
                 rsp.flags |= VM_EVENT_FLAG_EMULATE;
                 break;
+
             case VM_EVENT_REASON_WRITE_CTRLREG:
                 printf("Control register written: rip=%016"PRIx64", vcpu %d: "
                        "reg=%s, old_value=%016"PRIx64", new_value=%016"PRIx64"\n",
@@ -891,6 +897,7 @@ int main(int argc, char *argv[])
                        req.u.write_ctrlreg.old_value,
                        req.u.write_ctrlreg.new_value);
                 break;
+
             case VM_EVENT_REASON_EMUL_UNIMPLEMENTED:
                 if ( altp2m_write_no_gpt && req.flags & VM_EVENT_FLAG_ALTERNATE_P2M )
                 {
@@ -901,6 +908,7 @@ int main(int argc, char *argv[])
                     rsp.altp2m_idx = 0;
                 }
                 break;
+
             default:
                 fprintf(stderr, "UNKNOWN REASON CODE %d\n", req.reason);
             }
@@ -941,6 +949,7 @@ exit:
         rc = rc1;
 
     DPRINTF("xenaccess exit code %d\n", rc);
+
     return rc;
 }
 
