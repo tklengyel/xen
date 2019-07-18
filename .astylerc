@@ -1,0 +1,13 @@
+style=bsd
+suffix=none
+align-pointer=name
+align-reference=name
+indent=spaces=4
+max-code-length=80
+min-conditional-indent=0
+max-continuation-indent=78
+attach-closing-while
+remove-braces
+break-one-line-headers
+pad-comma
+pad-header
