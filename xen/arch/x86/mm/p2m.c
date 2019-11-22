@@ -2470,6 +2470,7 @@ bool p2m_altp2m_get_or_propagate(struct p2m_domain *ap2m, unsigned long gfn_l,
     gfn = _gfn(gfn_l & mask);
 
     rc = p2m_set_entry(ap2m, gfn, amfn, page_order, *p2mt, *p2ma);
+    ap2m->need_flush = 1;
     p2m_unlock(ap2m);
 
     if ( rc )
@@ -2509,6 +2510,7 @@ static void p2m_reset_altp2m(struct domain *d, unsigned int idx,
 
     p2m->min_remapped_gfn = gfn_x(INVALID_GFN);
     p2m->max_remapped_gfn = 0;
+    p2m->need_flush = 1;
 
     p2m_unlock(p2m);
 }
@@ -2718,6 +2720,8 @@ int p2m_change_altp2m_gfn(struct domain *d, unsigned int idx,
             ap2m->min_remapped_gfn = gfn_x(new_gfn);
         if ( gfn_x(new_gfn) > ap2m->max_remapped_gfn )
             ap2m->max_remapped_gfn = gfn_x(new_gfn);
+
+        ap2m->need_flush = 1;
     }
 
  out:
