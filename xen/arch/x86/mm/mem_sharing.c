@@ -1069,8 +1069,9 @@ err_out:
     return ret;
 }
 
-int mem_sharing_add_to_physmap(struct domain *sd, unsigned long sgfn, shr_handle_t sh,
-                               struct domain *cd, unsigned long cgfn, bool lock)
+static
+int add_to_physmap(struct domain *sd, unsigned long sgfn, shr_handle_t sh,
+                   struct domain *cd, unsigned long cgfn, bool lock)
 {
     struct page_info *spage;
     int ret = -EINVAL;
@@ -1582,7 +1583,7 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
         sh      = mso.u.share.source_handle;
         cgfn    = mso.u.share.client_gfn;
 
-        rc = mem_sharing_add_to_physmap(d, sgfn, sh, cd, cgfn, true);
+        rc = add_to_physmap(d, sgfn, sh, cd, cgfn, true);
 
         rcu_unlock_domain(cd);
     }
