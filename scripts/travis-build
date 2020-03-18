@@ -5,6 +5,9 @@ $CC --version
 # random config or default config
 if [[ "${RANDCONFIG}" == "y" ]]; then
     make -C xen KCONFIG_ALLCONFIG=tools/kconfig/allrandom.config randconfig
+elif [[ "${MEM_SHARING}" == "y" ]]; then
+    echo "CONFIG_MEM_SHARING=y" > xen/.config
+    make -C xen olddefconfig
 else
     make -C xen defconfig
 fi

@@ -36,6 +36,9 @@ matrix:
           env: XEN_TARGET_ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- XEN_CONFIG_EXPERT=y RANDCONFIG=y debug=n
         - compiler: gcc
           env: XEN_TARGET_ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- debug=y
+        - compiler: gcc
+          env: XEN_TARGET_ARCH=x86_64 XEN_CONFIG_EXPERT=y MEM_SHARING=y debug=y
+
 addons:
     apt:
         sources:
