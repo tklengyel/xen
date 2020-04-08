@@ -1913,7 +1913,7 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
     }
 #endif
 
-    /* Spurious fault? PoD and log-dirty also take this path. */
+    /* Spurious fault? PoD, log-dirty and VM forking also take this path. */
     if ( p2m_is_ram(p2mt) )
     {
         rc = 1;
@@ -4452,7 +4452,7 @@ static int hvm_allow_get_param(struct domain *d,
     return rc;
 }
 
-static int hvm_get_param(struct domain *d, uint32_t index, uint64_t *value)
+int hvm_get_param(struct domain *d, uint32_t index, uint64_t *value)
 {
     int rc;
 
