@@ -563,15 +563,41 @@ void hvm_do_resume(struct vcpu *v)
         v->arch.hvm.inject_event.vector = HVM_EVENT_VECTOR_UNSET;
     }
 
-    if ( unlikely(v->arch.vm_event) && v->arch.monitor.next_interrupt_enabled )
+    if ( unlikely(v->arch.vm_event) )
     {
-        struct x86_event info;
+        struct domain *d = v->domain;
 
-        if ( hvm_get_pending_event(v, &info) )
+        if ( v->arch.monitor.next_interrupt_enabled )
         {
-            hvm_monitor_interrupt(info.vector, info.type, info.error_code,
-                                  info.cr2);
-            v->arch.monitor.next_interrupt_enabled = false;
+            struct x86_event info;
+
+            if ( hvm_get_pending_event(v, &info) )
+            {
+                hvm_monitor_interrupt(info.vector, info.type, info.error_code,
+                                      info.cr2);
+                v->arch.monitor.next_interrupt_enabled = false;
+            }
+        }
+
+        if ( d->arch.monitor.safe_to_disable )
+        {
+            struct vcpu *check_vcpu;
+            bool pending_op = false;
+
+            for_each_vcpu ( d, check_vcpu )
+            {
+                if ( vm_event_check_pending_op(check_vcpu) )
+                {
+                    pending_op = true;
+                    break;
+                }
+            }
+
+            if ( !pending_op )
+            {
+                hvm_monitor_safe_to_disable();
+                d->arch.monitor.safe_to_disable = false;
+            }
         }
     }
 }

@@ -159,6 +159,14 @@
 #define VM_EVENT_REASON_DESCRIPTOR_ACCESS       13
 /* Current instruction is not implemented by the emulator */
 #define VM_EVENT_REASON_EMUL_UNIMPLEMENTED      14
+/*
+ * When shutting down vm_event it may not be immediately safe to complete the
+ * process as some vCPUs may be pending synchronization. This async event
+ * type can be used to receive a notification when its safe to finish disabling
+ * the vm_event interface. All other event types need to be disabled before
+ * registering to this one.
+ */
+#define VM_EVENT_REASON_SAFE_TO_DISABLE         15
 
 /* Supported values for the vm_event_write_ctrlreg index. */
 #define VM_EVENT_X86_CR0    0
