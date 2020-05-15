@@ -297,6 +297,29 @@ void vm_event_emulate_check(struct vcpu *v, vm_event_response_t *rsp)
     };
 }
 
+bool vm_event_check_pending_op(struct vcpu *v)
+{
+    struct monitor_write_data *w = &v->arch.vm_event->write_data;
+
+    if ( !v->arch.vm_event->sync_event )
+        return false;
+
+    if ( w->do_write.cr0 )
+        return true;
+    if ( w->do_write.cr3 )
+        return true;
+    if ( w->do_write.cr4 )
+        return true;
+    if ( w->do_write.msr )
+        return true;
+    if ( v->arch.vm_event->set_gprs )
+        return true;
+    if ( v->arch.vm_event->emulate_flags )
+        return true;
+
+    return false;
+}
+
 /*
  * Local variables:
  * mode: C

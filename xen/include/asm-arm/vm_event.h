@@ -58,4 +58,11 @@ void vm_event_sync_event(struct vcpu *v, bool value)
     /* Not supported on ARM. */
 }
 
+static inline
+bool vm_event_check_pending_op(struct vcpu *v)
+{
+    /* Not supported on ARM. */
+    return false;
+}
+
 #endif /* __ASM_ARM_VM_EVENT_H__ */
