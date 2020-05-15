@@ -293,6 +293,20 @@ bool hvm_monitor_check_p2m(unsigned long gla, gfn_t gfn, uint32_t pfec,
     return monitor_traps(curr, true, &req) >= 0;
 }
 
+void hvm_monitor_safe_to_disable(void)
+{
+    struct vcpu *curr = current;
+    struct arch_domain *ad = &curr->domain->arch;
+    vm_event_request_t req = {};
+
+    if ( !ad->monitor.safe_to_disable )
+        return;
+
+    req.reason = VM_EVENT_REASON_SAFE_TO_DISABLE;
+
+    monitor_traps(curr, 0, &req);
+}
+
 /*
  * Local variables:
  * mode: C
