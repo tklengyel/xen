@@ -144,7 +144,15 @@ int arch_monitor_domctl_event(struct domain *d,
                               struct xen_domctl_monitor_op *mop)
 {
     struct arch_domain *ad = &d->arch;
-    bool requested_status = (XEN_DOMCTL_MONITOR_OP_ENABLE == mop->op);
+    bool requested_status;
+
+    if ( XEN_DOMCTL_MONITOR_OP_CONTROL_REGISTERS == mop->op )
+    {
+        ad->monitor.control_register_values = true;
+        return 0;
+    }
+
+    requested_status = (XEN_DOMCTL_MONITOR_OP_ENABLE == mop->op);
 
     switch ( mop->event )
     {

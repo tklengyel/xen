@@ -2233,7 +2233,8 @@ int hvm_set_cr0(unsigned long value, bool may_defer)
     {
         ASSERT(v->arch.vm_event);
 
-        if ( hvm_monitor_crX(CR0, value, old_value) )
+        if ( hvm_monitor_crX(CR0, value, old_value) &&
+             v->domain->arch.monitor.control_register_values )
         {
             /* The actual write will occur in hvm_do_resume(), if permitted. */
             v->arch.vm_event->write_data.do_write.cr0 = 1;
@@ -2332,7 +2333,8 @@ int hvm_set_cr3(unsigned long value, bool may_defer)
     {
         ASSERT(v->arch.vm_event);
 
-        if ( hvm_monitor_crX(CR3, value, old) )
+        if ( hvm_monitor_crX(CR3, value, old) &&
+             v->domain->arch.monitor.control_register_values )
         {
             /* The actual write will occur in hvm_do_resume(), if permitted. */
             v->arch.vm_event->write_data.do_write.cr3 = 1;
@@ -2413,7 +2415,8 @@ int hvm_set_cr4(unsigned long value, bool may_defer)
     {
         ASSERT(v->arch.vm_event);
 
-        if ( hvm_monitor_crX(CR4, value, old_cr) )
+        if ( hvm_monitor_crX(CR4, value, old_cr) &&
+             v->domain->arch.monitor.control_register_values )
         {
             /* The actual write will occur in hvm_do_resume(), if permitted. */
             v->arch.vm_event->write_data.do_write.cr4 = 1;
@@ -3583,13 +3586,17 @@ int hvm_msr_write_intercept(unsigned int msr, uint64_t msr_content,
 
         ASSERT(v->arch.vm_event);
 
-        /* The actual write will occur in hvm_do_resume() (if permitted). */
-        v->arch.vm_event->write_data.do_write.msr = 1;
-        v->arch.vm_event->write_data.msr = msr;
-        v->arch.vm_event->write_data.value = msr_content;
-
         hvm_monitor_msr(msr, msr_content, msr_old_content);
-        return X86EMUL_OKAY;
+
+        if ( v->domain->arch.monitor.control_register_values )
+        {
+            /* The actual write will occur in hvm_do_resume(), if permitted. */
+            v->arch.vm_event->write_data.do_write.msr = 1;
+            v->arch.vm_event->write_data.msr = msr;
+            v->arch.vm_event->write_data.value = msr_content;
+
+            return X86EMUL_OKAY;
+        }
     }
 
     if ( (ret = guest_wrmsr(v, msr, msr_content)) != X86EMUL_UNHANDLEABLE )
