@@ -182,6 +182,7 @@ static int vm_event_disable(struct domain *d, struct vm_event_domain **p_ved)
     if ( vm_event_check_ring(ved) )
     {
         struct vcpu *v;
+        bool pending_op = false;
 
         spin_lock(&ved->lock);
 
@@ -191,9 +192,6 @@ static int vm_event_disable(struct domain *d, struct vm_event_domain **p_ved)
             return -EBUSY;
         }
 
-        /* Free domU's event channel and leave the other one unbound */
-        free_xen_event_channel(d, ved->xen_port);
-
         /* Unblock all vCPUs */
         for_each_vcpu ( d, v )
         {
@@ -202,7 +200,20 @@ static int vm_event_disable(struct domain *d, struct vm_event_domain **p_ved)
                 vcpu_unpause(v);
                 ved->blocked--;
             }
+
+            if ( vm_event_check_pending_op(v) )
+                pending_op = true;
         }
+
+        /* vm_event ops are still pending until vCPUs get scheduled */
+        if ( pending_op )
+        {
+            spin_unlock(&ved->lock);
+            return -EAGAIN;
+        }
+
+        /* Free domU's event channel and leave the other one unbound */
+        free_xen_event_channel(d, ved->xen_port);
 
         destroy_ring_for_helper(&ved->ring_page, ved->ring_pg_struct);
 
