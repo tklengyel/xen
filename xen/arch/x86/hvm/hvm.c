@@ -5320,7 +5320,7 @@ int hvm_copy_context_and_params(struct domain *dst, struct domain *src)
         return -ENOMEM;
 
     if ( (rc = hvm_save(src, &c)) )
-        return rc;
+        goto out;
 
     for ( i = 0; i < HVM_NR_PARAMS; i++ )
     {
@@ -5330,11 +5330,13 @@ int hvm_copy_context_and_params(struct domain *dst, struct domain *src)
             continue;
 
         if ( (rc = hvm_set_param(dst, i, value)) )
-            return rc;
+            goto out;
     }
 
     c.cur = 0;
     rc = hvm_load(dst, &c);
+
+ out:
     vfree(c.data);
 
     return rc;
