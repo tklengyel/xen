@@ -80,6 +80,8 @@ struct mem_sharing_domain
      * to resume the search.
      */
     unsigned long next_shared_gfn_to_relinquish;
+
+    bool block_interrupts;
 };
 #endif
 

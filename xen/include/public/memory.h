@@ -537,6 +537,7 @@ struct xen_mem_sharing_op {
         struct mem_sharing_op_fork {      /* OP_FORK */
             domid_t parent_domain;        /* IN: parent's domain id */
 #define XENMEM_FORK_WITH_IOMMU_ALLOWED (1u << 0)
+#define XENMEM_FORK_BLOCK_INTERRUPTS   (1u << 1)
             uint16_t flags;               /* IN: optional settings */
             uint32_t pad;                 /* Must be set to 0 */
         } fork;
