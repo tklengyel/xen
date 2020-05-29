@@ -1983,7 +1983,9 @@ _hidden int libxl__domain_make(libxl__gc *gc,
                                libxl_domain_config *d_config,
                                libxl__domain_build_state *state,
                                uint32_t *domid, bool soft_reset);
-
+_hidden int libxl__domain_make_xs_entries(libxl__gc *gc, libxl_domain_config *d_config,
+                                          libxl__domain_build_state *state,
+                                          uint32_t domid);
 _hidden int libxl__domain_build(libxl__gc *gc,
                                 libxl_domain_config *d_config,
                                 uint32_t domid,

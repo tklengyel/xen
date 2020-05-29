@@ -579,27 +579,13 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
                        uint32_t *domid, bool soft_reset)
 {
     libxl_ctx *ctx = libxl__gc_owner(gc);
-    int ret, rc, nb_vm;
-    const char *dom_type;
-    char *uuid_string;
-    char *dom_path, *vm_path, *libxl_path;
-    struct xs_permissions roperm[2];
-    struct xs_permissions rwperm[1];
-    struct xs_permissions noperm[1];
-    xs_transaction_t t = 0;
-    libxl_vminfo *vm_list;
+    int ret, rc;
 
     /* convenience aliases */
     libxl_domain_create_info *info = &d_config->c_info;
     libxl_domain_build_info *b_info = &d_config->b_info;
 
     assert(soft_reset || *domid == INVALID_DOMID);
-
-    uuid_string = libxl__uuid2string(gc, info->uuid);
-    if (!uuid_string) {
-        rc = ERROR_NOMEM;
-        goto out;
-    }
 
     if (!soft_reset) {
         struct xen_domctl_createdomain create = {
@@ -731,7 +717,37 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
         goto out;
     }
 
-    dom_path = libxl__xs_get_dompath(gc, *domid);
+    rc = libxl__domain_make_xs_entries(gc, d_config, state, *domid);
+
+ out:
+    return rc;
+}
+
+int libxl__domain_make_xs_entries(libxl__gc *gc, libxl_domain_config *d_config,
+                                  libxl__domain_build_state *state,
+                                  uint32_t domid)
+{
+    libxl_ctx *ctx = libxl__gc_owner(gc);
+    int rc, nb_vm;
+    const char *dom_type;
+    char *uuid_string;
+    char *dom_path, *vm_path, *libxl_path;
+    struct xs_permissions roperm[2];
+    struct xs_permissions rwperm[1];
+    struct xs_permissions noperm[1];
+    xs_transaction_t t = 0;
+    libxl_vminfo *vm_list;
+
+    /* convenience aliases */
+    libxl_domain_create_info *info = &d_config->c_info;
+
+    uuid_string = libxl__uuid2string(gc, info->uuid);
+    if (!uuid_string) {
+        rc = ERROR_NOMEM;
+        goto out;
+    }
+
+    dom_path = libxl__xs_get_dompath(gc, domid);
     if (!dom_path) {
         rc = ERROR_FAIL;
         goto out;
@@ -739,12 +755,12 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
 
     vm_path = GCSPRINTF("/vm/%s", uuid_string);
     if (!vm_path) {
-        LOGD(ERROR, *domid, "cannot allocate create paths");
+        LOGD(ERROR, domid, "cannot allocate create paths");
         rc = ERROR_FAIL;
         goto out;
     }
 
-    libxl_path = libxl__xs_libxl_path(gc, *domid);
+    libxl_path = libxl__xs_libxl_path(gc, domid);
     if (!libxl_path) {
         rc = ERROR_FAIL;
         goto out;
@@ -755,10 +771,10 @@ int libxl__domain_make(libxl__gc *gc, libxl_domain_config *d_config,
 
     roperm[0].id = 0;
     roperm[0].perms = XS_PERM_NONE;
-    roperm[1].id = *domid;
+    roperm[1].id = domid;
     roperm[1].perms = XS_PERM_READ;
 
-    rwperm[0].id = *domid;
+    rwperm[0].id = domid;
     rwperm[0].perms = XS_PERM_NONE;
 
 retry_transaction:
@@ -776,7 +792,7 @@ retry_transaction:
                     noperm, ARRAY_SIZE(noperm));
 
     xs_write(ctx->xsh, t, GCSPRINTF("%s/vm", dom_path), vm_path, strlen(vm_path));
-    rc = libxl__domain_rename(gc, *domid, 0, info->name, t);
+    rc = libxl__domain_rename(gc, domid, 0, info->name, t);
     if (rc)
         goto out;
 
@@ -866,7 +882,7 @@ retry_transaction:
 
     vm_list = libxl_list_vm(ctx, &nb_vm);
     if (!vm_list) {
-        LOGD(ERROR, *domid, "cannot get number of running guests");
+        LOGD(ERROR, domid, "cannot get number of running guests");
         rc = ERROR_FAIL;
         goto out;
     }
@@ -890,7 +906,7 @@ retry_transaction:
             t = 0;
             goto retry_transaction;
         }
-        LOGED(ERROR, *domid, "domain creation ""xenstore transaction commit failed");
+        LOGED(ERROR, domid, "domain creation ""xenstore transaction commit failed");
         rc = ERROR_FAIL;
         goto out;
     }
