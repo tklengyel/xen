@@ -1244,7 +1244,13 @@ static void initiate_domain_create(libxl__egc *egc,
     ret = libxl__domain_config_setdefault(gc,d_config,domid);
     if (ret) goto error_out;
 
-    ret = libxl__domain_make(gc, d_config, dbs, &domid, dcs->soft_reset);
+    /* If no dm_restore_file is specified we are in the normal path */
+    if (!d_config->dm_restore_file)
+        ret = libxl__domain_make(gc, d_config, dbs, &domid, dcs->soft_reset);
+    else
+        ret = libxl__domain_make_xs_entries(gc, d_config, &dcs->build_state,
+                                            domid);
+
     if (ret) {
         LOGD(ERROR, domid, "cannot make domain: %d", ret);
         dcs->guest_domid = domid;
@@ -2051,6 +2057,9 @@ static int do_domain_create(libxl_ctx *ctx, libxl_domain_config *d_config,
     cdcs->dcs.callback = domain_create_cb;
     cdcs->dcs.domid = INVALID_DOMID;
     cdcs->dcs.soft_reset = false;
+
+    if (d_config->dm_restore_file)
+        cdcs->dcs.domid = *domid;
 
     if (cdcs->dcs.restore_params.checkpointed_stream ==
         LIBXL_CHECKPOINTED_STREAM_COLO) {

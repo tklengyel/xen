@@ -961,6 +961,7 @@ libxl_domain_config = Struct("domain_config", [
     ("on_watchdog", libxl_action_on_shutdown),
     ("on_crash", libxl_action_on_shutdown),
     ("on_soft_reset", libxl_action_on_shutdown),
+    ("dm_restore_file", string, {'const': True}),
     ], dir=DIR_IN)
 
 libxl_diskinfo = Struct("diskinfo", [
