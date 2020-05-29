@@ -458,6 +458,9 @@ int libxl__build_post(libxl__gc *gc, uint32_t domid,
     char **ents;
     int i, rc;
 
+    if (state->forked_vm)
+        goto skip_fork;
+
     if (info->num_vnuma_nodes && !info->num_vcpu_soft_affinity) {
         rc = set_vnuma_affinity(gc, domid, info);
         if (rc)
@@ -478,6 +481,7 @@ int libxl__build_post(libxl__gc *gc, uint32_t domid,
         }
     }
 
+skip_fork:
     ents = libxl__calloc(gc, 12 + (info->max_vcpus * 2) + 2, sizeof(char *));
     ents[0] = "memory/static-max";
     ents[1] = GCSPRINTF("%"PRId64, info->max_memkb);
