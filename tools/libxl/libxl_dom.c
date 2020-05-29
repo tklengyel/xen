@@ -744,14 +744,15 @@ static int hvm_build_set_params(xc_interface *handle, uint32_t domid,
                                 libxl_domain_build_info *info,
                                 int store_evtchn, unsigned long *store_mfn,
                                 int console_evtchn, unsigned long *console_mfn,
-                                domid_t store_domid, domid_t console_domid)
+                                domid_t store_domid, domid_t console_domid,
+                                bool forked_vm)
 {
     struct hvm_info_table *va_hvm;
     uint8_t *va_map, sum;
     uint64_t str_mfn, cons_mfn;
     int i;
 
-    if (info->type == LIBXL_DOMAIN_TYPE_HVM) {
+    if (info->type == LIBXL_DOMAIN_TYPE_HVM && !forked_vm) {
         va_map = xc_map_foreign_range(handle, domid,
                                       XC_PAGE_SIZE, PROT_READ | PROT_WRITE,
                                       HVM_INFO_PFN);
@@ -1056,6 +1057,28 @@ out:
     return rc;
 }
 
+static int libxl__build_hvm_fork(libxl__gc *gc, uint32_t domid,
+                                 libxl_domain_config *d_config,
+                                 libxl__domain_build_state *state)
+{
+    libxl_ctx *ctx = libxl__gc_owner(gc);
+    libxl_domain_build_info *const info = &d_config->b_info;
+
+    int rc = hvm_build_set_params(ctx->xch, domid, info, state->store_port,
+                                  &state->store_mfn, state->console_port,
+                                  &state->console_mfn, state->store_domid,
+                                  state->console_domid, state->forked_vm);
+
+    if ( rc )
+        return rc;
+
+    return xc_dom_gnttab_seed(ctx->xch, domid, true,
+                              state->console_mfn,
+                              state->store_mfn,
+                              state->console_domid,
+                              state->store_domid);
+}
+
 int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
               libxl_domain_config *d_config,
               libxl__domain_build_state *state)
@@ -1066,6 +1089,9 @@ int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
     libxl_domain_build_info *const info = &d_config->b_info;
     struct xc_dom_image *dom = NULL;
     bool device_model = info->type == LIBXL_DOMAIN_TYPE_HVM ? true : false;
+
+    if (state->forked_vm)
+        return libxl__build_hvm_fork(gc, domid, d_config, state);
 
     xc_dom_loginit(ctx->xch);
 
@@ -1191,7 +1217,7 @@ int libxl__build_hvm(libxl__gc *gc, uint32_t domid,
     rc = hvm_build_set_params(ctx->xch, domid, info, state->store_port,
                                &state->store_mfn, state->console_port,
                                &state->console_mfn, state->store_domid,
-                               state->console_domid);
+                               state->console_domid, false);
     if (rc != 0) {
         LOG(ERROR, "hvm build set params failed");
         goto out;
