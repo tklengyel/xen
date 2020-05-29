@@ -249,8 +249,11 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
     libxl_domain_build_info *const info = &d_config->b_info;
     libxl_ctx *ctx = libxl__gc_owner(gc);
     char *xs_domid, *con_domid;
-    int rc;
+    int rc = 0;
     uint64_t size;
+
+    if (state->forked_vm)
+        goto skip_fork;
 
     if (xc_domain_max_vcpus(ctx->xch, domid, info->max_vcpus) != 0) {
         LOG(ERROR, "Couldn't set max vcpu count");
@@ -374,6 +377,19 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
         return ERROR_FAIL;
     }
 
+    rc = libxl__arch_domain_create(gc, d_config, domid);
+    if (rc < 0) {
+        LOGE(ERROR, "Domain create failed");
+        return ERROR_FAIL;
+    }
+
+    /* Construct a CPUID policy, but only for brand new domains.  Domains
+     * being migrated-in/restored have CPUID handled during the
+     * static_data_done() callback. */
+    if (!state->restore)
+        libxl__cpuid_legacy(ctx, domid, info);
+
+skip_fork:
     xs_domid = xs_read(ctx->xsh, XBT_NULL, "/tool/xenstored/domid", NULL);
     state->store_domid = xs_domid ? atoi(xs_domid) : 0;
     free(xs_domid);
@@ -384,14 +400,6 @@ int libxl__build_pre(libxl__gc *gc, uint32_t domid,
 
     state->store_port = xc_evtchn_alloc_unbound(ctx->xch, domid, state->store_domid);
     state->console_port = xc_evtchn_alloc_unbound(ctx->xch, domid, state->console_domid);
-
-    rc = libxl__arch_domain_create(gc, d_config, domid);
-
-    /* Construct a CPUID policy, but only for brand new domains.  Domains
-     * being migrated-in/restored have CPUID handled during the
-     * static_data_done() callback. */
-    if (!state->restore)
-        libxl__cpuid_legacy(ctx, domid, false, info);
 
     return rc;
 }
