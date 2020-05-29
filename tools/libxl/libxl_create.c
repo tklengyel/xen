@@ -1294,7 +1294,7 @@ static void initiate_domain_create(libxl__egc *egc,
     if (ret)
         goto error_out;
 
-    if (dbs->restore || dcs->soft_reset) {
+    if (dbs->restore || dcs->soft_reset || d_config->dm_restore_file) {
         LOGD(DEBUG, domid, "restoring, not running bootloader");
         domcreate_bootloader_done(egc, &dcs->bl, 0);
     } else  {
@@ -1370,7 +1370,7 @@ static void domcreate_bootloader_done(libxl__egc *egc,
     dcs->sdss.dm.callback = domcreate_devmodel_started;
     dcs->sdss.callback = domcreate_devmodel_started;
 
-    if (restore_fd < 0 && !dcs->soft_reset) {
+    if (restore_fd < 0 && !dcs->soft_reset && !d_config->dm_restore_file) {
         rc = libxl__domain_build(gc, d_config, domid, state);
         domcreate_rebuild_done(egc, dcs, rc);
         return;
