@@ -1376,6 +1376,7 @@ typedef struct {
 
     char *saved_state;
     int dm_monitor_fd;
+    bool forked_vm;
 
     libxl__file_reference pv_kernel;
     libxl__file_reference pv_ramdisk;

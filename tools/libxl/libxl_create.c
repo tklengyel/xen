@@ -1376,6 +1376,15 @@ static void domcreate_bootloader_done(libxl__egc *egc,
         return;
     }
 
+    if (d_config->dm_restore_file) {
+        dcs->srs.dcs = dcs;
+        dcs->srs.ao = ao;
+        state->forked_vm = true;
+        rc = libxl__domain_build(gc, d_config, domid, state);
+        domcreate_rebuild_done(egc, dcs, rc);
+        return;
+    }
+
     /* Prepare environment for domcreate_stream_done */
     dcs->srs.dcs = dcs;
 
