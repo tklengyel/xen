@@ -1602,12 +1602,16 @@ static void domcreate_rebuild_done(libxl__egc *egc,
     /* convenience aliases */
     const uint32_t domid = dcs->guest_domid;
     libxl_domain_config *const d_config = dcs->guest_config;
+    libxl__domain_build_state *const state = &dcs->build_state;
 
     if (ret) {
         LOGD(ERROR, domid, "cannot (re-)build domain: %d", ret);
         ret = ERROR_FAIL;
         goto error_out;
     }
+
+    if (d_config->dm_restore_file)
+        state->saved_state = GCSPRINTF("%s", d_config->dm_restore_file);
 
     store_libxl_entry(gc, domid, &d_config->b_info);
 

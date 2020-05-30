@@ -3104,7 +3104,7 @@ static void device_model_spawn_outcome(libxl__egc *egc,
 
     libxl__domain_build_state *state = dmss->build_state;
 
-    if (state->saved_state) {
+    if (state->saved_state && !state->forked_vm) {
         ret2 = unlink(state->saved_state);
         if (ret2) {
             LOGED(ERROR, dmss->guest_domid, "%s: failed to remove device-model state %s",
