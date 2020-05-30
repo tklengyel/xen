@@ -2704,6 +2704,16 @@ static inline int libxl_qemu_monitor_command_0x041200(libxl_ctx *ctx,
  */
 int libxl_clear_domid_history(libxl_ctx *ctx);
 
+/*
+ * Experimental VM forking functions
+ */
+int libxl_domain_fork_vm(libxl_ctx *ctx, uint32_t pdomid, uint32_t *domid)
+                         LIBXL_EXTERNAL_CALLERS_ONLY;
+
+int libxl_domain_fork_launch_dm(libxl_ctx *ctx, libxl_domain_config *d_config,
+                                uint32_t domid,
+                                const libxl_asyncprogress_how *aop_console_how)
+                                LIBXL_EXTERNAL_CALLERS_ONLY;
 #endif /* LIBXL_H */
 
 /*
