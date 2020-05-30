@@ -50,6 +50,8 @@ struct domain_create {
     int migrate_fd; /* -1 means none */
     int send_back_fd; /* -1 means none */
     char **migration_domname_r; /* from malloc */
+    uint32_t dm_restore_domid; /* restore dm for this domid */
+    const char *dm_restore_file; /* path to dm restore file */
 };
 
 int create_domain(struct domain_create *dom_info);
@@ -131,6 +133,8 @@ int main_restore(int argc, char **argv);
 int main_migrate_receive(int argc, char **argv);
 int main_save(int argc, char **argv);
 int main_migrate(int argc, char **argv);
+int main_fork_vm(int argc, char **argv);
+int main_fork_launch_dm(int argc, char **argv);
 #endif
 int main_dump_core(int argc, char **argv);
 int main_pause(int argc, char **argv);
