@@ -708,6 +708,45 @@ above).
 
 =back
 
+=item B<fork-vm> [I<OPTIONS>] I<domain-id>
+
+Create a fork of a running VM.  The domain will be paused after the operation
+and remains paused while forks of it exist.  Experimental and x86 only.
+Forks can only be made of domains with HAP enabled and on Intel hardware.  The
+parent domain must be created with the xl toolstack and its configuration must
+not manually define max_grant_frames, max_maptrack_frames or max_event_channels.
+
+B<OPTIONS>
+
+=over 4
+
+=item B<-p>
+
+Leave the forked VM paused after creating it.  The parent always remains paused
+while there are forks active from it and that's enforced by the hypervisor.
+
+=item B<--launch-dm>
+
+Specify whether the device model (QEMU) should be launched for the fork.  Late
+launch allows to start the device model for an already running fork previously
+created with "--launch-dm no".
+
+=item B<-C>
+
+The config file to use when launching the device model.  Currently required when
+launching the device model.  Most config settings MUST match the parent domain
+exactly, only change VM name, disk path and network configurations.
+
+=item B<-Q>
+
+The path to the QEMU save file to use when launching the device model.  Currently
+required when launching the device model.  Generate it by connecting to the parent
+domain's QMP socket and issuing:
+ { "execute": "qmp_capabilities" }
+ { "execute": "xen-save-devices-state", "arguments": { "filename": "/path/to/qemu.save", "live": false} }
+
+=back
+
 =item B<sharing> [I<domain-id>]
 
 Display the number of shared pages for a specified domain. If no domain is
