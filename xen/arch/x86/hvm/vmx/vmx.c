@@ -4438,6 +4438,85 @@ bool vmx_vmenter_helper(const struct cpu_user_regs *regs)
     return true;
 }
 
+void vmx_lbr_toggle(struct vcpu *v, bool enable)
+{
+    unsigned long val;
+    const struct lbr_info *lbr = last_branch_msr_get();
+
+    if ( unlikely(!lbr) )
+    {
+        gprintk(XENLOG_ERR, "Unknown CPU for LBR\n");
+        return;
+    }
+
+    vmx_vmcs_enter(v);
+    __vmread(GUEST_IA32_DEBUGCTL, &val);
+
+    if ( enable )
+    {
+        val |= IA32_DEBUGCTLMSR_LBR;
+
+            for ( ; lbr->count; lbr++ )
+            {
+                unsigned int i;
+
+                for ( i = 0; i < lbr->count; i++ )
+                {
+                    int rc = vmx_add_guest_msr(v, lbr->base + i, 0);
+
+                    if ( unlikely(rc) )
+                    {
+                        gprintk(XENLOG_ERR, "Failed to add LBR MSR %d\n", rc);
+                        domain_crash(v->domain);
+                        return;
+                    }
+
+                    vmx_clear_msr_intercept(v, lbr->base + i, VMX_MSR_RW);
+                }
+            }
+
+            v->arch.hvm.vmx.lbr_flags |= LBR_MSRS_INSERTED;
+            if ( lbr_tsx_fixup_needed )
+                v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_TSX;
+            if ( bdf93_fixup_needed )
+                v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_BDF93;
+    }
+    else
+        val &= ~IA32_DEBUGCTLMSR_LBR;
+
+    __vmwrite(GUEST_IA32_DEBUGCTL, val);
+    vmx_vmcs_exit(v);
+
+    gdprintk(XENLOG_ERR, "DEBUGCTL val set: %lx\n", val);
+}
+
+void vmx_lbr_get(struct vcpu *v, uint32_t get, uint32_t *count, uint32_t *tos,
+                 uint64_t *from, uint64_t *to)
+{
+    const struct lbr_info *lbr = last_branch_msr_get();
+    uint64_t _tos;
+
+    if  ( !lbr )
+        return;
+
+    vmx_read_guest_msr(v, lbr[2].base, &_tos);
+
+    *count = lbr[3].count;
+    *tos = _tos;
+
+    if ( get < lbr[3].count )
+    {
+        vmx_read_guest_msr(v, lbr[3].base + get, from);
+        vmx_read_guest_msr(v, lbr[4].base + get, to);
+    } else {
+        vmx_read_guest_msr(v, lbr[3].base + *tos, from);
+        vmx_read_guest_msr(v, lbr[4].base + *tos, to);
+    }
+
+    gdprintk(XENLOG_ERR, "LBR TOS = %u. Count: %u\n", *tos, *count);
+    gdprintk(XENLOG_ERR, "LBR GET %u: %lx -> %lx\n", get, *from, *to);
+}
+
 /*
  * Local variables:
  * mode: C

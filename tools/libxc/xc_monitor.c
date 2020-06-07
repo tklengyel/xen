@@ -246,6 +246,40 @@ int xc_monitor_emul_unimplemented(xc_interface *xch, uint32_t domain_id,
     return do_domctl(xch, &domctl);
 }
 
+int xc_monitor_enable_lbr(xc_interface *xch, uint32_t domain_id)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_monitor_op;
+    domctl.domain = domain_id;
+    domctl.u.monitor_op.op = XEN_DOMCTL_MONITOR_OP_ENABLE_LBR;
+
+    return do_domctl(xch, &domctl);
+}
+
+int xc_monitor_get_lbr(xc_interface *xch, uint32_t domain_id, uint32_t vcpu, uint32_t get,
+                       uint32_t *count, uint32_t *tos, uint64_t *from, uint64_t *to)
+{
+    DECLARE_DOMCTL;
+    int rc;
+
+    domctl.cmd = XEN_DOMCTL_monitor_op;
+    domctl.domain = domain_id;
+    domctl.u.monitor_op.op = XEN_DOMCTL_MONITOR_OP_GET_LBR;
+    domctl.u.monitor_op.event = get;
+    domctl.u.monitor_op.u.lbr_info.vcpu = vcpu;
+
+    if ( !(rc = do_domctl(xch, &domctl)) )
+    {
+        *count = domctl.u.monitor_op.u.lbr_info.count;
+        *tos = domctl.u.monitor_op.u.lbr_info.tos;
+        *from = domctl.u.monitor_op.u.lbr_info.from;
+        *to = domctl.u.monitor_op.u.lbr_info.to;
+    }
+
+    return rc;
+}
+
 /*
  * Local variables:
  * mode: C

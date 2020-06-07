@@ -1025,6 +1025,8 @@ struct xen_domctl_psr_cmt_op {
 #define XEN_DOMCTL_MONITOR_OP_GET_CAPABILITIES  2
 #define XEN_DOMCTL_MONITOR_OP_EMULATE_EACH_REP  3
 #define XEN_DOMCTL_MONITOR_OP_CONTROL_REGISTERS 4
+#define XEN_DOMCTL_MONITOR_OP_ENABLE_LBR        5
+#define XEN_DOMCTL_MONITOR_OP_GET_LBR           6
 
 #define XEN_DOMCTL_MONITOR_EVENT_WRITE_CTRLREG         0
 #define XEN_DOMCTL_MONITOR_EVENT_MOV_TO_MSR            1
@@ -1049,6 +1051,8 @@ struct xen_domctl_monitor_op {
      * With GET_CAPABILITIES this field returns a bitmap of
      * events supported by the platform, in the format
      * (1 << XEN_DOMCTL_MONITOR_EVENT_*).
+     * With GET_LBR this holds the LBR indice # to get TO/FROM,
+     * or with ~0 gets the current top-of-stack entry.
      */
     uint32_t event;
 
@@ -1089,6 +1093,15 @@ struct xen_domctl_monitor_op {
             /* Pause vCPU until response */
             uint8_t sync;
         } debug_exception;
+
+        struct {
+            uint32_t vcpu;
+            uint32_t tos;
+            uint32_t count;
+            uint32_t pad;
+            uint64_t from;
+            uint64_t to;
+        } lbr_info;
     } u;
 };
 
