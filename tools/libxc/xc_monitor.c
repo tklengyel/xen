@@ -246,6 +246,17 @@ int xc_monitor_emul_unimplemented(xc_interface *xch, uint32_t domain_id,
     return do_domctl(xch, &domctl);
 }
 
+int xc_monitor_lbr(xc_interface *xch, uint32_t domain_id)
+{
+    DECLARE_DOMCTL;
+
+    domctl.cmd = XEN_DOMCTL_monitor_op;
+    domctl.domain = domain_id;
+    domctl.u.monitor_op.op = 5;//XEN_DOMCTL_MONITOR_OP_ENABLE_LBR;
+
+    return do_domctl(xch, &domctl);
+}
+
 /*
  * Local variables:
  * mode: C

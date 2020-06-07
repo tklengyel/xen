@@ -4438,6 +4438,82 @@ bool vmx_vmenter_helper(const struct cpu_user_regs *regs)
     return true;
 }
 
+void vmx_lbr_toggle(struct vcpu *v, bool enable)
+{
+    unsigned long val;
+    const struct lbr_info *lbr = last_branch_msr_get();
+
+    if ( unlikely(!lbr) )
+    {
+        gprintk(XENLOG_ERR, "Unknown CPU for LBR\n");
+        return;
+    }
+
+    vmx_vmcs_enter(v);
+    __vmread(GUEST_IA32_DEBUGCTL, &val);
+
+    if ( enable )
+    {
+        val |= IA32_DEBUGCTLMSR_LBR;
+
+            for ( ; lbr->count; lbr++ )
+            {
+                unsigned int i;
+
+                for ( i = 0; i < lbr->count; i++ )
+                {
+                    int rc = vmx_add_guest_msr(v, lbr->base + i, 0);
+
+                    if ( unlikely(rc) )
+                    {
+                        gprintk(XENLOG_ERR, "Failed to add LBR MSR %d\n", rc);
+                        domain_crash(v->domain);
+                        return;
+                    }
+
+                    vmx_clear_msr_intercept(v, lbr->base + i, VMX_MSR_RW);
+                }
+            }
+
+            v->arch.hvm.vmx.lbr_flags |= LBR_MSRS_INSERTED;
+            if ( lbr_tsx_fixup_needed )
+                v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_TSX;
+            if ( bdf93_fixup_needed )
+                v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_BDF93;
+    }
+    else
+        val &= ~IA32_DEBUGCTLMSR_LBR;
+
+    __vmwrite(GUEST_IA32_DEBUGCTL, val);
+    vmx_vmcs_exit(v);
+
+    gdprintk(XENLOG_ERR, "DEBUGCTL val set: %lx\n", val);
+}
+
+void vmx_lbr_get(void)
+{
+    const struct lbr_info *lbr = last_branch_msr_get();
+    uint64_t tos = 0;
+    unsigned int i = 0;
+    struct vcpu *curr = current;
+
+    if  ( !lbr )
+        return;
+
+    vmx_read_guest_msr(curr, lbr[2].base, &tos);
+    gdprintk(XENLOG_ERR, "LBR TOS MSR %x = %lx\n", lbr[2].base, tos);
+
+    for ( ; i < lbr[3].count; i++ )
+    {
+        uint64_t from, to;
+        vmx_read_guest_msr(curr, lbr[3].base + i, &from);
+        vmx_read_guest_msr(curr, lbr[4].base + i, &to);
+        gdprintk(XENLOG_ERR, "LBR MSR FROM %x: 0x%lx -> TO %x: 0x%lx\n",
+                 lbr[3].base + i, from,
+                 lbr[4].base + i, to);
+    }
+}
+
 /*
  * Local variables:
  * mode: C

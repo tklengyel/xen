@@ -2052,6 +2052,8 @@ int xc_monitor_emul_unimplemented(xc_interface *xch, uint32_t domain_id,
 int xc_monitor_emulate_each_rep(xc_interface *xch, uint32_t domain_id,
                                 bool enable);
 
+int xc_monitor_lbr(xc_interface *xch, uint32_t domain_id);
+
 /***
  * Memory sharing operations.
  *

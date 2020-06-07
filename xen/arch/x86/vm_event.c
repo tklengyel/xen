@@ -21,6 +21,7 @@
 #include <xen/sched.h>
 #include <xen/mem_access.h>
 #include <asm/vm_event.h>
+#include <asm/hvm/vmx/vmx.h>
 
 /* Implicitly serialized by the domctl lock. */
 int vm_event_init_domain(struct domain *d)
@@ -247,6 +248,8 @@ void vm_event_fill_regs(vm_event_request_t *req)
 
     req->data.regs.x86.shadow_gs = ctxt.shadow_gs;
     req->data.regs.x86.dr6 = ctxt.dr6;
+
+    vmx_lbr_get();
 #endif
 }
 
