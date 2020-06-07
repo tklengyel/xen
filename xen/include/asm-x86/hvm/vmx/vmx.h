@@ -609,6 +609,8 @@ void update_guest_eip(void);
 void vmx_pi_per_cpu_init(unsigned int cpu);
 void vmx_pi_desc_fixup(unsigned int cpu);
 
+void vmx_lbr_toggle(struct vcpu *v, bool enable);
+
 #ifdef CONFIG_HVM
 void vmx_pi_hooks_assign(struct domain *d);
 void vmx_pi_hooks_deassign(struct domain *d);

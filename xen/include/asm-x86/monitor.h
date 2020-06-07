@@ -23,6 +23,7 @@
 #define __ASM_X86_MONITOR_H__
 
 #include <xen/sched.h>
+#include <asm-x86/hvm/vmx/vmx.h>
 
 #define monitor_ctrlreg_bitmask(ctrlreg_index) (1U << (ctrlreg_index))
 
@@ -59,6 +60,16 @@ int arch_monitor_domctl_op(struct domain *d, struct xen_domctl_monitor_op *mop)
         domain_unpause(d);
         break;
 
+    case XEN_DOMCTL_MONITOR_OP_LBR:
+    {
+        struct vcpu *v;
+
+        domain_pause(d);
+        for_each_vcpu ( d, v )
+            vmx_lbr_toggle(v, true);
+        domain_unpause(d);
+        break;
+    }
     default:
         rc = -EOPNOTSUPP;
     }

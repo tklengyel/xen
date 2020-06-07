@@ -550,6 +550,17 @@ void vmx_update_exception_bitmap(struct vcpu *v)
         __vmwrite(EXCEPTION_BITMAP, bitmap);
 }
 
+void vmx_lbr_toggle(struct vcpu *v, bool enable)
+{
+    unsigned long val;
+
+    vmx_vmcs_enter(v);
+    __vmread(GUEST_IA32_DEBUGCTL, &val);
+    __vmwrite(GUEST_IA32_DEBUGCTL, enable ?
+                (val | IA32_DEBUGCTLMSR_LBR) : (val & ~IA32_DEBUGCTLMSR_LBR));
+    vmx_vmcs_exit(v);
+}
+
 static void vmx_cpuid_policy_changed(struct vcpu *v)
 {
     const struct cpuid_policy *cp = v->domain->arch.cpuid;
