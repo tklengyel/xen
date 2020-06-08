@@ -4490,28 +4490,31 @@ void vmx_lbr_toggle(struct vcpu *v, bool enable)
     gdprintk(XENLOG_ERR, "DEBUGCTL val set: %lx\n", val);
 }
 
-void vmx_lbr_get(void)
+void vmx_lbr_get(struct vcpu *v, uint32_t get, uint32_t *count, uint32_t *tos,
+                 uint64_t *from, uint64_t *to)
 {
     const struct lbr_info *lbr = last_branch_msr_get();
-    uint64_t tos = 0;
-    unsigned int i = 0;
-    struct vcpu *curr = current;
+    uint64_t _tos;
 
     if  ( !lbr )
         return;
 
-    vmx_read_guest_msr(curr, lbr[2].base, &tos);
-    gdprintk(XENLOG_ERR, "LBR TOS MSR %x = %lx\n", lbr[2].base, tos);
+    vmx_read_guest_msr(v, lbr[2].base, &_tos);
 
-    for ( ; i < lbr[3].count; i++ )
+    *count = lbr[3].count;
+    *tos = _tos;
+
+    if ( get < lbr[3].count )
     {
-        uint64_t from, to;
-        vmx_read_guest_msr(curr, lbr[3].base + i, &from);
-        vmx_read_guest_msr(curr, lbr[4].base + i, &to);
-        gdprintk(XENLOG_ERR, "LBR MSR FROM %x: 0x%lx -> TO %x: 0x%lx\n",
-                 lbr[3].base + i, from,
-                 lbr[4].base + i, to);
+        vmx_read_guest_msr(v, lbr[3].base + get, from);
+        vmx_read_guest_msr(v, lbr[4].base + get, to);
+    } else {
+        vmx_read_guest_msr(v, lbr[3].base + *tos, from);
+        vmx_read_guest_msr(v, lbr[4].base + *tos, to);
     }
+
+    gdprintk(XENLOG_ERR, "LBR TOS = %u. Count: %u\n", *tos, *count);
+    gdprintk(XENLOG_ERR, "LBR GET %u: %lx -> %lx\n", get, *from, *to);
 }
 
 /*

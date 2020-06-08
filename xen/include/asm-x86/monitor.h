@@ -71,6 +71,20 @@ int arch_monitor_domctl_op(struct domain *d, struct xen_domctl_monitor_op *mop)
         break;
     }
 
+    case XEN_DOMCTL_MONITOR_OP_GET_LBR:
+    {
+        domain_pause(d);
+        vmx_lbr_get(d->vcpu[mop->u.lbr_info.vcpu],
+                    mop->event,
+                    &mop->u.lbr_info.count,
+                    &mop->u.lbr_info.tos,
+                    &mop->u.lbr_info.from,
+                    &mop->u.lbr_info.to
+                    );
+        domain_unpause(d);
+        break;
+    }
+
     default:
         rc = -EOPNOTSUPP;
     }

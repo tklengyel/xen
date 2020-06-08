@@ -610,7 +610,8 @@ void vmx_pi_per_cpu_init(unsigned int cpu);
 void vmx_pi_desc_fixup(unsigned int cpu);
 
 void vmx_lbr_toggle(struct vcpu *v, bool enable);
-void vmx_lbr_get(void);
+void vmx_lbr_get(struct vcpu *v, uint32_t get, uint32_t *count, uint32_t *tos,
+                 uint64_t *from, uint64_t *to);
 
 #ifdef CONFIG_HVM
 void vmx_pi_hooks_assign(struct domain *d);
