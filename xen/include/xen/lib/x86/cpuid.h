@@ -82,6 +82,7 @@ const char *x86_cpuid_vendor_to_str(unsigned int vendor);
 #define CPUID_GUEST_NR_CACHE      (5u + 1)
 #define CPUID_GUEST_NR_FEAT       (1u + 1)
 #define CPUID_GUEST_NR_TOPO       (1u + 1)
+#define CPUID_GUEST_NR_INTEL_PT   (1u + 1)
 #define CPUID_GUEST_NR_XSTATE     (62u + 1)
 #define CPUID_GUEST_NR_EXTD_INTEL (0x8u + 1)
 #define CPUID_GUEST_NR_EXTD_AMD   (0x1cu + 1)
@@ -93,12 +94,13 @@ const char *x86_cpuid_vendor_to_str(unsigned int vendor);
  * for interaction with the toolstack.  (Sum of all leaves in each union, less
  * the entries in basic which sub-unions hang off of.)
  */
-#define CPUID_MAX_SERIALISED_LEAVES                     \
-    (CPUID_GUEST_NR_BASIC +                             \
-     CPUID_GUEST_NR_FEAT   - !!CPUID_GUEST_NR_FEAT +    \
-     CPUID_GUEST_NR_CACHE  - !!CPUID_GUEST_NR_CACHE +   \
-     CPUID_GUEST_NR_TOPO   - !!CPUID_GUEST_NR_TOPO +    \
-     CPUID_GUEST_NR_XSTATE - !!CPUID_GUEST_NR_XSTATE +  \
+#define CPUID_MAX_SERIALISED_LEAVES                        \
+    (CPUID_GUEST_NR_BASIC +                                \
+     CPUID_GUEST_NR_FEAT     - !!CPUID_GUEST_NR_FEAT +     \
+     CPUID_GUEST_NR_CACHE    - !!CPUID_GUEST_NR_CACHE +    \
+     CPUID_GUEST_NR_TOPO     - !!CPUID_GUEST_NR_TOPO +     \
+     CPUID_GUEST_NR_INTEL_PT - !!CPUID_GUEST_NR_INTEL_PT + \
+     CPUID_GUEST_NR_XSTATE   - !!CPUID_GUEST_NR_XSTATE +   \
      CPUID_GUEST_NR_EXTD + 2 /* hv_limit and hv2_limit */ )
 
 struct cpuid_policy
@@ -224,6 +226,14 @@ struct cpuid_policy
             uint32_t _res_d;
         } comp[CPUID_GUEST_NR_XSTATE];
     } xstate;
+
+    union {
+        struct cpuid_leaf raw[CPUID_GUEST_NR_INTEL_PT];
+        struct {
+            /* Subleaf 0. */
+            uint32_t max_subleaf;
+        };
+    } ipt;
 
     /* Extended leaves: 0x800000xx */
     union {
