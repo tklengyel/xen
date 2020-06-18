@@ -683,6 +683,19 @@ If this option is not specified then it will default to B<false>.
 
 =back
 
+=item B<processor_trace_buf_kb=KBYTES>
+
+Specifies the size of processor trace buffer that would be allocated
+for each vCPU belonging to this domain. Disabled (i.e.
+B<processor_trace_buf_kb=0> by default. This must be set to
+non-zero value in order to be able to use processor tracing features
+with this domain.
+
+B<NOTE>: In order to use Intel Processor Trace feature, this value
+must be between 8 kB and 4 GB and it must be a power of 2.
+
+=back
+
 =head2 Devices
 
 The following options define the paravirtual, emulated and physical

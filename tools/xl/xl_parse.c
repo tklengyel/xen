@@ -1861,6 +1861,28 @@ void parse_config_data(const char *config_source,
         }
     }
 
+    if (!xlu_cfg_get_long(config, "processor_trace_buf_kb", &l, 1) && l) {
+        if (l & (l - 1)) {
+            fprintf(stderr, "ERROR: processor_trace_buf_kb"
+                            " - must be a power of 2\n");
+            exit(1);
+        }
+
+        if (l < 8) {
+            fprintf(stderr, "ERROR: processor_trace_buf_kb"
+                            " - value is too small\n");
+            exit(1);
+        }
+
+        if (l > 1024*1024*4) {
+            fprintf(stderr, "ERROR: processor_trace_buf_kb"
+                            " - value is too large\n");
+            exit(1);
+        }
+
+        b_info->processor_trace_buf_kb = l;
+    }
+
     if (!xlu_cfg_get_list(config, "ioports", &ioports, &num_ioports, 0)) {
         b_info->num_ioports = num_ioports;
         b_info->ioports = calloc(num_ioports, sizeof(*b_info->ioports));
