@@ -345,7 +345,7 @@ int arch_monitor_domctl_event(struct domain *d,
 
         domain_pause(d);
         for_each_vcpu ( d, v )
-            vmx_lbr_toggle(v, mop->op == XEN_DOMCTL_MONITOR_OP_ENABLE);
+            vmx_lbr_toggle(v, requested_status);
         domain_unpause(d);
         break;
     }
