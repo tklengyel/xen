@@ -339,6 +339,17 @@ int arch_monitor_domctl_event(struct domain *d,
         break;
     }
 
+    case XEN_DOMCTL_MONITOR_LBR:
+    {
+        struct vcpu *v;
+
+        domain_pause(d);
+        for_each_vcpu ( d, v )
+            vmx_lbr_toggle(v, mop->op == XEN_DOMCTL_MONITOR_OP_ENABLE);
+        domain_unpause(d);
+        break;
+    }
+
     default:
         /*
          * Should not be reached unless arch_monitor_get_capabilities() is

@@ -246,13 +246,14 @@ int xc_monitor_emul_unimplemented(xc_interface *xch, uint32_t domain_id,
     return do_domctl(xch, &domctl);
 }
 
-int xc_monitor_enable_lbr(xc_interface *xch, uint32_t domain_id)
+int xc_monitor_toggle_lbr(xc_interface *xch, uint32_t domain_id, bool enable)
 {
     DECLARE_DOMCTL;
 
     domctl.cmd = XEN_DOMCTL_monitor_op;
     domctl.domain = domain_id;
-    domctl.u.monitor_op.op = XEN_DOMCTL_MONITOR_OP_ENABLE_LBR;
+    domctl.u.monitor_op.op = enable ? XEN_DOMCTL_MONITOR_OP_ENABLE : XEN_DOMCTL_MONITOR_OP_DISABLE;
+    domctl.u.monitor_op.event = XEN_DOMCTL_MONITOR_LBR;
 
     return do_domctl(xch, &domctl);
 }

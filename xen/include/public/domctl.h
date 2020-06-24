@@ -1025,8 +1025,7 @@ struct xen_domctl_psr_cmt_op {
 #define XEN_DOMCTL_MONITOR_OP_GET_CAPABILITIES  2
 #define XEN_DOMCTL_MONITOR_OP_EMULATE_EACH_REP  3
 #define XEN_DOMCTL_MONITOR_OP_CONTROL_REGISTERS 4
-#define XEN_DOMCTL_MONITOR_OP_ENABLE_LBR        5
-#define XEN_DOMCTL_MONITOR_OP_GET_LBR           6
+#define XEN_DOMCTL_MONITOR_OP_GET_LBR           5
 
 #define XEN_DOMCTL_MONITOR_EVENT_WRITE_CTRLREG         0
 #define XEN_DOMCTL_MONITOR_EVENT_MOV_TO_MSR            1
@@ -1041,6 +1040,7 @@ struct xen_domctl_psr_cmt_op {
 #define XEN_DOMCTL_MONITOR_EVENT_EMUL_UNIMPLEMENTED    10
 /* Enabled by default */
 #define XEN_DOMCTL_MONITOR_EVENT_INGUEST_PAGEFAULT     11
+#define XEN_DOMCTL_MONITOR_LBR                         12
 
 struct xen_domctl_monitor_op {
     uint32_t op; /* XEN_DOMCTL_MONITOR_OP_* */

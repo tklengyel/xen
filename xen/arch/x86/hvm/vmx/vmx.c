@@ -4456,33 +4456,52 @@ void vmx_lbr_toggle(struct vcpu *v, bool enable)
     {
         val |= IA32_DEBUGCTLMSR_LBR;
 
-            for ( ; lbr->count; lbr++ )
+        for ( ; lbr->count; lbr++ )
+        {
+            unsigned int i;
+
+            for ( i = 0; i < lbr->count; i++ )
             {
-                unsigned int i;
+                int rc = vmx_add_guest_msr(v, lbr->base + i, 0);
 
-                for ( i = 0; i < lbr->count; i++ )
+                if ( unlikely(rc) )
                 {
-                    int rc = vmx_add_guest_msr(v, lbr->base + i, 0);
-
-                    if ( unlikely(rc) )
-                    {
-                        gprintk(XENLOG_ERR, "Failed to add LBR MSR %d\n", rc);
-                        domain_crash(v->domain);
-                        return;
-                    }
-
-                    vmx_clear_msr_intercept(v, lbr->base + i, VMX_MSR_RW);
+                    gprintk(XENLOG_ERR, "Failed to add LBR MSR %d\n", rc);
+                    domain_crash(v->domain);
+                    return;
                 }
-            }
 
-            v->arch.hvm.vmx.lbr_flags |= LBR_MSRS_INSERTED;
-            if ( lbr_tsx_fixup_needed )
-                v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_TSX;
-            if ( bdf93_fixup_needed )
-                v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_BDF93;
+                vmx_clear_msr_intercept(v, lbr->base + i, VMX_MSR_RW);
+            }
+        }
+
+        v->arch.hvm.vmx.lbr_flags |= LBR_MSRS_INSERTED;
+        if ( lbr_tsx_fixup_needed )
+            v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_TSX;
+        if ( bdf93_fixup_needed )
+            v->arch.hvm.vmx.lbr_flags |= LBR_FIXUP_BDF93;
     }
     else
+    {
         val &= ~IA32_DEBUGCTLMSR_LBR;
+
+        for ( ; lbr->count; lbr++ )
+        {
+            unsigned int i;
+
+            for ( i = 0; i < lbr->count; i++ )
+            {
+                int rc = vmx_del_msr(v, lbr->base + i, VMX_MSR_GUEST);
+
+                if ( unlikely(rc) )
+                {
+                    gprintk(XENLOG_ERR, "Failed to del LBR MSR %d\n", rc);
+                    domain_crash(v->domain);
+                    return;
+                }
+            }
+        }
+    }
 
     __vmwrite(GUEST_IA32_DEBUGCTL, val);
     vmx_vmcs_exit(v);
@@ -4496,10 +4515,11 @@ void vmx_lbr_get(struct vcpu *v, uint32_t get, uint32_t *count, uint32_t *tos,
     const struct lbr_info *lbr = last_branch_msr_get();
     uint64_t _tos;
 
-    if  ( !lbr )
-        return;
+    *count = 0;
+    *tos = 0;
 
-    vmx_read_guest_msr(v, lbr[2].base, &_tos);
+    if ( !lbr || vmx_read_guest_msr(v, lbr[2].base, &_tos) )
+        return;
 
     *count = lbr[3].count;
     *tos = _tos;
