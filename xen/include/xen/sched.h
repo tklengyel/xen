@@ -253,6 +253,10 @@ struct vcpu
     /* vPCI per-vCPU area, used to store data for long running operations. */
     struct vpci_vcpu vpci;
 
+    struct {
+        struct page_info *pt_buf;
+    } vmtrace;
+
     struct arch_vcpu arch;
 };
 

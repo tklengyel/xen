@@ -214,6 +214,10 @@ struct hvm_function_table {
     bool_t (*altp2m_vcpu_emulate_ve)(struct vcpu *v);
     int (*altp2m_vcpu_emulate_vmfunc)(const struct cpu_user_regs *regs);
 
+    /* vmtrace */
+    int (*vmtrace_control_pt)(struct vcpu *v, bool enable);
+    int (*vmtrace_get_pt_offset)(struct vcpu *v, uint64_t *offset, uint64_t *size);
+
     /*
      * Parameters and callbacks for hardware-assisted TSC scaling,
      * which are valid only when the hardware feature is available.
@@ -653,6 +657,22 @@ static inline bool altp2m_vcpu_emulate_ve(struct vcpu *v)
         return true;
     }
     return false;
+}
+
+static inline int vmtrace_control_pt(struct vcpu *v, bool enable)
+{
+    if ( hvm_funcs.vmtrace_control_pt )
+        return hvm_funcs.vmtrace_control_pt(v, enable);
+
+    return -EOPNOTSUPP;
+}
+
+static inline int vmtrace_get_pt_offset(struct vcpu *v, uint64_t *offset, uint64_t *size)
+{
+    if ( hvm_funcs.vmtrace_get_pt_offset )
+        return hvm_funcs.vmtrace_get_pt_offset(v, offset, size);
+
+    return -EOPNOTSUPP;
 }
 
 /*
