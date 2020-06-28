@@ -1007,6 +1007,32 @@ static long xatp_permission_check(struct domain *d, unsigned int space)
     return xsm_add_to_physmap(XSM_TARGET, current->domain, d);
 }
 
+static int acquire_vmtrace_buf(struct domain *d, unsigned int id,
+                               uint64_t frame,
+                               uint64_t nr_frames,
+                               xen_pfn_t mfn_list[])
+{
+    mfn_t mfn;
+    unsigned int i;
+    uint64_t size;
+    struct vcpu *v = domain_vcpu(d, id);
+
+    if ( !v || !v->vmtrace.pt_buf )
+        return -EINVAL;
+
+    mfn = page_to_mfn(v->vmtrace.pt_buf);
+    size = v->domain->processor_trace_buf_kb * KB(1);
+
+    if ( (frame > (size >> PAGE_SHIFT)) ||
+         (nr_frames > ((size >> PAGE_SHIFT) - frame)) )
+        return -EINVAL;
+
+    for ( i = 0; i < nr_frames; i++ )
+        mfn_list[i] = mfn_x(mfn_add(mfn, frame + i));
+
+    return 0;
+}
+
 static int acquire_grant_table(struct domain *d, unsigned int id,
                                unsigned long frame,
                                unsigned int nr_frames,
@@ -1114,6 +1140,11 @@ static int acquire_resource(
     {
     case XENMEM_resource_grant_table:
         rc = acquire_grant_table(d, xmar.id, xmar.frame, xmar.nr_frames,
+                                 mfn_list);
+        break;
+
+    case XENMEM_resource_vmtrace_buf:
+        rc = acquire_vmtrace_buf(d, xmar.id, xmar.frame, xmar.nr_frames,
                                  mfn_list);
         break;
 
