@@ -1136,6 +1136,30 @@ struct xen_domctl_vuart_op {
                                  */
 };
 
+/* XEN_DOMCTL_vmtrace_op: Perform VM tracing related operation */
+#if defined(__XEN__) || defined(__XEN_TOOLS__)
+
+struct xen_domctl_vmtrace_op {
+    /* IN variable */
+    uint32_t cmd;
+/* Enable/disable external vmtrace for given domain */
+#define XEN_DOMCTL_vmtrace_pt_enable      1
+#define XEN_DOMCTL_vmtrace_pt_disable     2
+#define XEN_DOMCTL_vmtrace_pt_get_offset  3
+    domid_t domain;
+    uint16_t pad1;
+    uint32_t vcpu;
+    uint16_t pad2;
+
+    /* OUT variable */
+    uint64_aligned_t size;
+    uint64_aligned_t offset;
+};
+typedef struct xen_domctl_vmtrace_op xen_domctl_vmtrace_op_t;
+DEFINE_XEN_GUEST_HANDLE(xen_domctl_vmtrace_op_t);
+
+#endif /* defined(__XEN__) || defined(__XEN_TOOLS__) */
+
 struct xen_domctl {
     uint32_t cmd;
 #define XEN_DOMCTL_createdomain                   1
@@ -1217,6 +1241,7 @@ struct xen_domctl {
 #define XEN_DOMCTL_vuart_op                      81
 #define XEN_DOMCTL_get_cpu_policy                82
 #define XEN_DOMCTL_set_cpu_policy                83
+#define XEN_DOMCTL_vmtrace_op                    84
 #define XEN_DOMCTL_gdbsx_guestmemio            1000
 #define XEN_DOMCTL_gdbsx_pausevcpu             1001
 #define XEN_DOMCTL_gdbsx_unpausevcpu           1002
@@ -1277,6 +1302,9 @@ struct xen_domctl {
         struct xen_domctl_monitor_op        monitor_op;
         struct xen_domctl_psr_alloc         psr_alloc;
         struct xen_domctl_vuart_op          vuart_op;
+#if defined(__XEN__) || defined(__XEN_TOOLS__)
+        struct xen_domctl_vmtrace_op        vmtrace_op;
+#endif
         uint8_t                             pad[128];
     } u;
 };
