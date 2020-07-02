@@ -186,6 +186,9 @@ struct vmx_vcpu {
      * pCPU and wakeup the related vCPU.
      */
     struct pi_blocking_vcpu pi_blocking;
+
+    /* State of processor trace feature */
+    struct ipt_state      *ipt_state;
 };
 
 int vmx_create_vmcs(struct vcpu *v);

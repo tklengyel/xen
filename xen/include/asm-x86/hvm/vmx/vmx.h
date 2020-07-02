@@ -689,4 +689,18 @@ typedef union ldt_or_tr_instr_info {
     };
 } ldt_or_tr_instr_info_t;
 
+/* Processor Trace state per vCPU */
+struct ipt_state {
+    bool active;
+    uint64_t status;
+    uint64_t output_base;
+    union {
+        uint64_t raw;
+        struct {
+            uint32_t size;
+            uint32_t offset;
+        };
+    } output_mask;
+};
+
 #endif /* __ASM_X86_HVM_VMX_VMX_H__ */
