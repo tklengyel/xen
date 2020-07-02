@@ -92,6 +92,7 @@ struct xen_domctl_createdomain {
     uint32_t max_evtchn_port;
     int32_t max_grant_frames;
     int32_t max_maptrack_frames;
+    uint32_t processor_trace_buf_kb;
 
     struct xen_arch_domainconfig arch;
 };
