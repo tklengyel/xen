@@ -460,7 +460,7 @@ static int vmx_init_pt(struct vcpu *v)
 
     rc = vmx_add_guest_msr(v, MSR_RTIT_CTL,
                               RTIT_CTL_TRACE_EN | RTIT_CTL_OS |
-                              RTIT_CTL_USR | RTIT_CTL_BRANCH_EN);
+                              RTIT_CTL_USR | RTIT_CTL_BRANCH_EN | RTIT_CTL_TSC_EN);
 
     if ( rc )
         return rc;
