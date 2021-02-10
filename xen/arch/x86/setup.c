@@ -55,6 +55,8 @@
 #include <asm/microcode.h>
 #include <asm/pv/domain.h>
 
+#include <asm/xue.h>
+
 /* opt_nosmp: If true, secondary processors are ignored. */
 static bool __initdata opt_nosmp;
 boolean_param("nosmp", opt_nosmp);
@@ -827,6 +829,8 @@ static struct domain *__init create_dom0(const module_t *image,
 /* How much of the directmap is prebuilt at compile time. */
 #define PREBUILT_MAP_LIMIT (1 << L2_PAGETABLE_SHIFT)
 
+void __init xue_uart_init(void);
+
 void __init noreturn __start_xen(unsigned long mbi_p)
 {
     char *memmap_type = NULL;
@@ -919,6 +923,7 @@ void __init noreturn __start_xen(unsigned long mbi_p)
     ns16550.irq     = 3;
     ns16550_init(1, &ns16550);
     ehci_dbgp_init();
+    xue_uart_init();
     console_init_preirq();
 
     if ( pvh_boot )
