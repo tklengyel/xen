@@ -1651,12 +1651,16 @@ static int copy_vcpu_settings(struct domain *cd, const struct domain *d)
 
     for ( i = 0; i < cd->max_vcpus; i++ )
     {
-        const struct vcpu *d_vcpu = d->vcpu[i];
+        struct vcpu *d_vcpu = d->vcpu[i];
         struct vcpu *cd_vcpu = cd->vcpu[i];
         mfn_t vcpu_info_mfn;
+        unsigned long intr_shadow;
 
         if ( !d_vcpu || !cd_vcpu )
             continue;
+
+        intr_shadow = hvm_get_interrupt_shadow(d_vcpu);
+        hvm_set_interrupt_shadow(cd_vcpu, intr_shadow);
 
         /* Copy & map in the vcpu_info page if the guest uses one */
         vcpu_info_mfn = d_vcpu->vcpu_info_mfn;

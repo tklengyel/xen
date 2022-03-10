@@ -1319,11 +1319,14 @@ static void cf_check vmx_init_hypercall_page(void *p)
     }
 }
 
-static unsigned int cf_check vmx_get_interrupt_shadow(struct vcpu *v)
+static unsigned int
+cf_check vmx_get_interrupt_shadow(struct vcpu *v)
 {
     unsigned long intr_shadow;
 
+    vmx_vmcs_enter(v);
     __vmread(GUEST_INTERRUPTIBILITY_INFO, &intr_shadow);
+    vmx_vmcs_exit(v);
 
     return intr_shadow;
 }
@@ -1331,7 +1334,9 @@ static unsigned int cf_check vmx_get_interrupt_shadow(struct vcpu *v)
 static void cf_check vmx_set_interrupt_shadow(
     struct vcpu *v, unsigned int intr_shadow)
 {
+    vmx_vmcs_enter(v);
     __vmwrite(GUEST_INTERRUPTIBILITY_INFO, intr_shadow);
+    vmx_vmcs_exit(v);
 }
 
 static void vmx_load_pdptrs(struct vcpu *v)

@@ -720,6 +720,22 @@ static inline int hvm_vmtrace_reset(struct vcpu *v)
     return -EOPNOTSUPP;
 }
 
+static inline unsigned long hvm_get_interrupt_shadow(struct vcpu *v)
+{
+    if ( hvm_funcs.get_interrupt_shadow )
+        return alternative_call(hvm_funcs.get_interrupt_shadow, v);
+
+    return -EOPNOTSUPP;
+}
+
+static inline void
+hvm_set_interrupt_shadow(struct vcpu *v, unsigned long val)
+{
+    if ( hvm_funcs.set_interrupt_shadow )
+        alternative_vcall(hvm_funcs.set_interrupt_shadow, v, val);
+}
+
+
 /*
  * Accessors for registers which have per-guest-type or per-vendor locations
  * (e.g. VMCS, msr load/save lists, VMCB, VMLOAD lazy, etc).
@@ -883,6 +899,9 @@ static inline void hvm_set_reg(struct vcpu *v, unsigned int reg, uint64_t val)
 #define hvm_pku_enabled(v) ((void)(v), false)
 
 #define arch_vcpu_block(v) ((void)(v))
+
+#define hvm_get_interrupt_shadow(v) ((void)(v), 0)
+#define hvm_set_interrupt_shadow(v, val) ((void)(v))
 
 #endif  /* CONFIG_HVM */
 

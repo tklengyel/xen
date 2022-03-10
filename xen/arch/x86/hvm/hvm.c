@@ -897,6 +897,8 @@ static int cf_check hvm_save_cpu_ctxt(struct vcpu *v, hvm_domain_context_t *h)
         ctxt.flags = XEN_X86_FPU_INITIALISED;
     }
 
+    ctxt.interruptibility_state = hvm_get_interrupt_shadow(v);
+
     return hvm_save_entry(CPU, v->vcpu_id, h, &ctxt);
 }
 
@@ -988,9 +990,6 @@ static int cf_check hvm_load_cpu_ctxt(struct domain *d, hvm_domain_context_t *h)
     }
 
     if ( hvm_load_entry_zeroextend(CPU, h, &ctxt) != 0 )
-        return -EINVAL;
-
-    if ( ctxt.pad0 != 0 )
         return -EINVAL;
 
     /* Sanity check some control registers. */
@@ -1154,6 +1153,8 @@ static int cf_check hvm_load_cpu_ctxt(struct domain *d, hvm_domain_context_t *h)
     v->arch.dr[3] = ctxt.dr3;
     v->arch.dr6   = ctxt.dr6;
     v->arch.dr7   = ctxt.dr7;
+
+    hvm_set_interrupt_shadow(v, ctxt.interruptibility_state);
 
     hvmemul_cancel(v);
 
@@ -3888,7 +3889,7 @@ enum hvm_intblk hvm_interrupt_blocked(struct vcpu *v, struct hvm_intack intack)
          !(guest_cpu_user_regs()->eflags & X86_EFLAGS_IF) )
         return hvm_intblk_rflags_ie;
 
-    intr_shadow = alternative_call(hvm_funcs.get_interrupt_shadow, v);
+    intr_shadow = hvm_get_interrupt_shadow(v);
 
     if ( intr_shadow & (HVM_INTR_SHADOW_STI|HVM_INTR_SHADOW_MOV_SS) )
         return hvm_intblk_shadow;
