@@ -328,6 +328,32 @@ bool hvm_monitor_check_p2m(unsigned long gla, gfn_t gfn, uint32_t pfec,
     return monitor_traps(curr, true, &req) >= 0;
 }
 
+int hvm_monitor_vmexit(unsigned long exit_reason,
+                       unsigned long exit_qualification)
+{
+   /*
+    * !rc    continue normally
+    * rc     paused waiting for response, work here is done
+    */
+    struct vcpu *curr = current;
+    struct arch_domain *ad = &curr->domain->arch;
+    vm_event_request_t req = {};
+
+    if ( !ad->monitor.vmexit_enabled )
+        return 0;
+
+    req.reason = VM_EVENT_REASON_VMEXIT;
+    req.u.vmexit.reason = exit_reason;
+    req.u.vmexit.qualification = exit_qualification;
+
+    set_npt_base(curr, &req);
+
+    if ( ad->monitor.vmexit_sync )
+        hvm_maybe_deassert_evtchn_irq();
+
+    return monitor_traps(curr, !!ad->monitor.vmexit_sync, &req);
+}
+
 /*
  * Local variables:
  * mode: C

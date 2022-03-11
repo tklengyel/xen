@@ -3933,6 +3933,7 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     }
 
     __vmread(VM_EXIT_REASON, &exit_reason);
+    __vmread(EXIT_QUALIFICATION, &exit_qualification);
 
     if ( hvm_long_mode_active(v) )
         HVMTRACE_ND(VMEXIT64, 0, 1/*cycles*/, exit_reason,
@@ -3969,6 +3970,9 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
 
     /* Now enable interrupts so it's safe to take locks. */
     local_irq_enable();
+
+    if ( unlikely(hvm_monitor_vmexit(exit_reason, exit_qualification)) )
+        return;
 
     /*
      * If the guest has the ability to switch EPTP without an exit,

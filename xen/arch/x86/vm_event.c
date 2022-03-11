@@ -21,6 +21,7 @@
 #include <xen/sched.h>
 #include <xen/mem_access.h>
 #include <asm/vm_event.h>
+#include <asm/mem_sharing.h>
 
 /* Implicitly serialized by the domctl lock. */
 int vm_event_init_domain(struct domain *d)
@@ -306,6 +307,16 @@ void vm_event_reset_vmtrace(struct vcpu *v)
 {
 #ifdef CONFIG_HVM
     hvm_vmtrace_reset(v);
+#endif
+}
+
+void vm_event_reset_fork(struct vcpu *v, vm_event_response_t *rsp)
+{
+#ifdef CONFIG_MEM_SHARING
+    bool mem = !!(rsp->flags & VM_EVENT_FLAG_RESET_FORK_MEMORY);
+    bool state = !!(rsp->flags & VM_EVENT_FLAG_RESET_FORK_STATE);
+
+    mem_sharing_fork_reset(v->domain, mem, state);
 #endif
 }
 

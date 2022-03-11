@@ -127,6 +127,14 @@
  * Reset the vmtrace buffer (if vmtrace is enabled)
  */
 #define VM_EVENT_FLAG_RESET_VMTRACE      (1 << 13)
+/*
+ * Remove dirty pages from fork physmap
+ */
+#define VM_EVENT_FLAG_RESET_FORK_MEMORY  (1 << 14)
+/*
+ * Reset the VM fork state
+ */
+#define VM_EVENT_FLAG_RESET_FORK_STATE   (1 << 15)
 
 /*
  * Reasons for the vm event request
@@ -167,6 +175,8 @@
 #define VM_EVENT_REASON_DESCRIPTOR_ACCESS       13
 /* Current instruction is not implemented by the emulator */
 #define VM_EVENT_REASON_EMUL_UNIMPLEMENTED      14
+/* VMEXIT */
+#define VM_EVENT_REASON_VMEXIT                  15
 
 /* Supported values for the vm_event_write_ctrlreg index. */
 #define VM_EVENT_X86_CR0    0
@@ -386,6 +396,11 @@ struct vm_event_emul_insn_data {
     uint8_t data[16]; /* Has to be completely filled */
 };
 
+struct vm_event_vmexit {
+    uint64_t reason;
+    uint64_t qualification;
+};
+
 typedef struct vm_event_st {
     uint32_t version;   /* VM_EVENT_INTERFACE_VERSION */
     uint32_t flags;     /* VM_EVENT_FLAG_* */
@@ -406,6 +421,7 @@ typedef struct vm_event_st {
         struct vm_event_debug                 software_breakpoint;
         struct vm_event_debug                 debug_exception;
         struct vm_event_cpuid                 cpuid;
+        struct vm_event_vmexit                vmexit;
         union {
             struct vm_event_interrupt_x86     x86;
         } interrupt;
