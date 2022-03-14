@@ -122,6 +122,8 @@ struct hvm_function_table {
     /* Examine specifics of the guest state. */
     unsigned int (*get_interrupt_shadow)(struct vcpu *v);
     void (*set_interrupt_shadow)(struct vcpu *v, unsigned int intr_shadow);
+    unsigned long (*get_pending_dbg)(struct vcpu *v);
+    void (*set_pending_dbg)(struct vcpu *v, unsigned long val);
     int (*guest_x86_mode)(struct vcpu *v);
     unsigned int (*get_cpl)(struct vcpu *v);
     void (*get_segment_register)(struct vcpu *v, enum x86_segment seg,
@@ -733,6 +735,21 @@ hvm_set_interrupt_shadow(struct vcpu *v, unsigned long val)
 {
     if ( hvm_funcs.set_interrupt_shadow )
         alternative_vcall(hvm_funcs.set_interrupt_shadow, v, val);
+}
+
+static inline unsigned long hvm_get_pending_dbg(struct vcpu *v)
+{
+    if ( hvm_funcs.get_pending_dbg )
+        return alternative_call(hvm_funcs.get_pending_dbg, v);
+
+    return -EOPNOTSUPP;
+}
+
+static inline void
+hvm_set_pending_dbg(struct vcpu *v, unsigned long val)
+{
+    if ( hvm_funcs.set_pending_dbg )
+        alternative_vcall(hvm_funcs.set_pending_dbg, v, val);
 }
 
 

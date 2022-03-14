@@ -898,6 +898,7 @@ static int cf_check hvm_save_cpu_ctxt(struct vcpu *v, hvm_domain_context_t *h)
     }
 
     ctxt.interruptibility_state = hvm_get_interrupt_shadow(v);
+    ctxt.pending_dbg = hvm_get_pending_dbg(v);
 
     return hvm_save_entry(CPU, v->vcpu_id, h, &ctxt);
 }
@@ -1155,6 +1156,7 @@ static int cf_check hvm_load_cpu_ctxt(struct domain *d, hvm_domain_context_t *h)
     v->arch.dr7   = ctxt.dr7;
 
     hvm_set_interrupt_shadow(v, ctxt.interruptibility_state);
+    hvm_set_pending_dbg(v, ctxt.pending_dbg);
 
     hvmemul_cancel(v);
 

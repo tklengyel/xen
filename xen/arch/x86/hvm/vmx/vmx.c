@@ -1339,6 +1339,25 @@ static void cf_check vmx_set_interrupt_shadow(
     vmx_vmcs_exit(v);
 }
 
+static unsigned long cf_check vmx_get_pending_dbg(struct vcpu *v)
+{
+    unsigned long val;
+
+    vmx_vmcs_enter(v);
+    __vmread(GUEST_PENDING_DBG_EXCEPTIONS, &val);
+    vmx_vmcs_exit(v);
+
+    return val;
+}
+
+static void cf_check vmx_set_pending_dbg(
+    struct vcpu *v, unsigned long val)
+{
+    vmx_vmcs_enter(v);
+    __vmwrite(GUEST_PENDING_DBG_EXCEPTIONS, val);
+    vmx_vmcs_exit(v);
+}
+
 static void vmx_load_pdptrs(struct vcpu *v)
 {
     uint32_t cr3 = v->arch.hvm.guest_cr[3];
@@ -2492,6 +2511,8 @@ static struct hvm_function_table __initdata_cf_clobber vmx_function_table = {
     .load_cpu_ctxt        = vmx_load_vmcs_ctxt,
     .get_interrupt_shadow = vmx_get_interrupt_shadow,
     .set_interrupt_shadow = vmx_set_interrupt_shadow,
+    .get_pending_dbg      = vmx_get_pending_dbg,
+    .set_pending_dbg      = vmx_set_pending_dbg,
     .guest_x86_mode       = vmx_guest_x86_mode,
     .get_cpl              = _vmx_get_cpl,
     .get_segment_register = vmx_get_segment_register,

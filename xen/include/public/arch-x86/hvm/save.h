@@ -167,6 +167,9 @@ struct hvm_hw_cpu {
     uint32_t flags;
 
     uint32_t interruptibility_state;
+    uint32_t activity_state;
+    uint32_t pad0;
+    uint64_t pending_dbg;
 };
 
 struct hvm_hw_cpu_compat {
