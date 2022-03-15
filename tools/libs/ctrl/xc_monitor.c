@@ -256,7 +256,7 @@ int xc_monitor_vmexit(xc_interface *xch, uint32_t domain_id, bool enable,
     domctl.u.monitor_op.op = enable ? XEN_DOMCTL_MONITOR_OP_ENABLE
                                     : XEN_DOMCTL_MONITOR_OP_DISABLE;
     domctl.u.monitor_op.event = XEN_DOMCTL_MONITOR_EVENT_VMEXIT;
-    domctl.u.monitor_op.vmexit.sync = sync;
+    domctl.u.monitor_op.u.vmexit.sync = sync;
 
     return do_domctl(xch, &domctl);
 }

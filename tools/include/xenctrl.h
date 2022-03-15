@@ -788,6 +788,11 @@ int xc_domain_hvm_getcontext_partial(xc_interface *xch,
                                      void *ctxt_buf,
                                      uint32_t size);
 
+unsigned long xc_domain_hvm_getcontext_size(xc_interface *xch,
+                                            uint32_t domid,
+                                            uint16_t typecode,
+                                            uint16_t instance);
+
 /**
  * This function will set the context for hvm domain
  *
@@ -2096,7 +2101,7 @@ int xc_monitor_privileged_call(xc_interface *xch, uint32_t domain_id,
                                bool enable);
 int xc_monitor_emul_unimplemented(xc_interface *xch, uint32_t domain_id,
                                   bool enable);
-int xc_monitor_vmexit(xc_interface *xch, uint32_t domain_id, bool enable
+int xc_monitor_vmexit(xc_interface *xch, uint32_t domain_id, bool enable,
                       bool sync);
 /**
  * This function enables / disables emulation for each REP for a

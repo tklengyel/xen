@@ -348,8 +348,7 @@ int hvm_monitor_vmexit(unsigned long exit_reason,
 
     set_npt_base(curr, &req);
 
-    if ( ad->monitor.vmexit_sync )
-        hvm_maybe_deassert_evtchn_irq();
+    hvm_maybe_deassert_evtchn_irq();
 
     return monitor_traps(curr, !!ad->monitor.vmexit_sync, &req);
 }
