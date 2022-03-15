@@ -510,6 +510,27 @@ int xc_domain_hvm_getcontext_partial(xc_interface *xch,
     return ret ? -1 : 0;
 }
 
+unsigned long xc_domain_hvm_getcontext_size(xc_interface *xch,
+                                            uint32_t domid,
+                                            uint16_t typecode,
+                                            uint16_t instance)
+{
+    int ret;
+    void *p = NULL;
+    DECLARE_DOMCTL;
+    DECLARE_HYPERCALL_BOUNCE(p, 0, XC_HYPERCALL_BUFFER_BOUNCE_OUT);
+
+    domctl.cmd = XEN_DOMCTL_gethvmcontext_partial;
+    domctl.domain = domid;
+    domctl.u.hvmcontext_partial.type = typecode;
+    domctl.u.hvmcontext_partial.instance = instance;
+    set_xen_guest_handle(domctl.u.hvmcontext_partial.buffer, p);
+
+    ret = do_domctl(xch, &domctl);
+
+    return ret ? 0 : domctl.u.hvmcontext_partial.bufsz;
+}
+
 /* set info to hvm guest for restore */
 int xc_domain_hvm_setcontext(xc_interface *xch,
                              uint32_t domid,

@@ -787,6 +787,18 @@ int xc_domain_hvm_getcontext_partial(xc_interface *xch,
                                      uint16_t instance,
                                      void *ctxt_buf,
                                      uint32_t size);
+/**
+ * This function returns the size of the specified context of a hvm domain
+ * @parm xch a handle to an open hypervisor interface
+ * @parm domid the domain to get information from
+ * @parm typecode which type of elemnt required
+ * @parm instance which instance of the type
+ * @return size on success, 0 on failure
+ */
+unsigned long xc_domain_hvm_getcontext_size(xc_interface *xch,
+                                            uint32_t domid,
+                                            uint16_t typecode,
+                                            uint16_t instance);
 
 /**
  * This function will set the context for hvm domain
