@@ -1677,7 +1677,7 @@ const struct hvm_function_table * __init start_svm(void)
 }
 
 static void svm_do_nested_pgfault(struct vcpu *v,
-    struct cpu_user_regs *regs, uint64_t pfec, paddr_t gpa)
+    struct cpu_user_regs *regs, uint64_t pfec, paddr_t gpa, bool idt_vec)
 {
     int ret;
     unsigned long gfn = gpa >> PAGE_SHIFT;
@@ -1703,6 +1703,8 @@ static void svm_do_nested_pgfault(struct vcpu *v,
         npfec.kind = npfec_kind_with_gla;
     else if ( pfec & NPT_PFEC_in_gpt )
         npfec.kind = npfec_kind_in_gpt;
+
+    npfec.idt_vectoring = idt_vec;
 
     ret = hvm_hap_nested_page_fault(gpa, ~0ul, npfec);
 
@@ -1744,8 +1746,8 @@ static void svm_do_nested_pgfault(struct vcpu *v,
         mfn = __get_gfn_type_access(p2m, gfn, &p2mt, &p2ma, 0, NULL, 0);
     }
     gdprintk(XENLOG_ERR,
-         "SVM violation gpa %#"PRIpaddr", mfn %#lx, type %i\n",
-         gpa, mfn_x(mfn), p2mt);
+         "SVM violation gpa %#"PRIpaddr", mfn %#lx, type %i %s\n",
+         gpa, mfn_x(mfn), p2mt, idt_vec ? "IDT vectoring" : "");
     domain_crash(v->domain);
 }
 
@@ -3023,7 +3025,8 @@ void svm_vmexit_handler(struct cpu_user_regs *regs)
              ? p2m_pt_handle_deferred_changes(vmcb->exitinfo2) : 0;
         if ( rc == 0 )
             /* If no recal adjustments were being made - handle this fault */
-            svm_do_nested_pgfault(v, regs, vmcb->exitinfo1, vmcb->exitinfo2);
+            svm_do_nested_pgfault(v, regs, vmcb->exitinfo1, vmcb->exitinfo2,
+                                  !!vmcb->exit_int_info.v);
         else if ( rc < 0 )
         {
             printk(XENLOG_G_ERR

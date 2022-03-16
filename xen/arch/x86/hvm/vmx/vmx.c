@@ -3598,7 +3598,7 @@ static void vmx_wbinvd_intercept(void)
         wbinvd();
 }
 
-static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
+static void ept_handle_violation(ept_qual_t q, paddr_t gpa, bool idt_vec)
 {
     unsigned long gla, gfn = gpa >> PAGE_SHIFT;
     mfn_t mfn;
@@ -3652,6 +3652,9 @@ static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
     else
         gla = ~0ull;
 
+    if ( idt_vec )
+        npfec.idt_vectoring = 1;
+
     ret = hvm_hap_nested_page_fault(gpa, gla, npfec);
     switch ( ret )
     {
@@ -3681,7 +3684,8 @@ static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
 
     if ( q.gla_valid )
         gprintk(XENLOG_ERR, " --- GLA %#lx\n", gla);
-
+    if ( idt_vec )
+        gprintk(XENLOG_ERR, " --- IDT vectoring\n");
     domain_crash(d);
 }
 
@@ -4445,7 +4449,8 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
 
         __vmread(GUEST_PHYSICAL_ADDRESS, &gpa);
         __vmread(EXIT_QUALIFICATION, &exit_qualification);
-        ept_handle_violation(exit_qualification, gpa);
+        ept_handle_violation(exit_qualification, gpa,
+                             !!(idtv_info & INTR_INFO_VALID_MASK));
         break;
     }
 

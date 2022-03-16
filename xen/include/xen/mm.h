@@ -155,7 +155,7 @@ void arch_dump_shared_mem_info(void);
 typedef enum {
     npfec_kind_unknown, /* must be first */
     npfec_kind_in_gpt,  /* violation in guest page table */
-    npfec_kind_with_gla /* violation with guest linear address */
+    npfec_kind_with_gla, /* violation with guest linear address */
 } npfec_kind_t;
 
 /*
@@ -168,6 +168,7 @@ struct npfec {
     unsigned int present:1;
     unsigned int gla_valid:1;
     unsigned int kind:2;  /* npfec_kind_t */
+    unsigned int idt_vectoring:1; /* violation while delivering through IDT */
 };
 
 /* memflags: */
