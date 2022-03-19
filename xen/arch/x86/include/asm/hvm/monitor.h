@@ -52,7 +52,8 @@ bool hvm_monitor_emul_unimplemented(void);
 bool hvm_monitor_check_p2m(unsigned long gla, gfn_t gfn, uint32_t pfec,
                            uint16_t kind);
 int hvm_monitor_vmexit(unsigned long exit_reason,
-                       unsigned long exit_qualification);
+                       unsigned long exit_qualification,
+                       unsigned long data);
 
 #endif /* __ASM_X86_HVM_MONITOR_H__ */
 

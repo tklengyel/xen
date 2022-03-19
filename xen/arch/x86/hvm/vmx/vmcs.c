@@ -1317,6 +1317,9 @@ static int construct_vmcs(struct vcpu *v)
         __vmwrite(TPR_THRESHOLD, 0);
     }
 
+    gdprintk(XENLOG_INFO, "------ construct vmcs 1\n");
+    ept_dump_p2m_table('D');
+
     if ( paging_mode_hap(d) )
     {
         struct p2m_domain *p2m = p2m_get_hostp2m(d);
@@ -1328,6 +1331,10 @@ static int construct_vmcs(struct vcpu *v)
         __vmwrite(HOST_PAT, XEN_MSR_PAT);
         __vmwrite(GUEST_PAT, MSR_IA32_CR_PAT_RESET);
     }
+
+    gdprintk(XENLOG_INFO, "------ construct vmcs 2\n");
+    ept_dump_p2m_table('D');
+
     if ( cpu_has_vmx_mpx )
         __vmwrite(GUEST_BNDCFGS, 0);
     if ( cpu_has_vmx_xsaves )
@@ -1336,10 +1343,19 @@ static int construct_vmcs(struct vcpu *v)
     if ( cpu_has_vmx_tsc_scaling )
         __vmwrite(TSC_MULTIPLIER, d->arch.hvm.tsc_scaling_ratio);
 
+    gdprintk(XENLOG_INFO, "------ construct vmcs 3\n");
+    ept_dump_p2m_table('D');
+
     /* will update HOST & GUEST_CR3 as reqd */
     paging_update_paging_modes(v);
 
+    gdprintk(XENLOG_INFO, "------ construct vmcs 4\n");
+    ept_dump_p2m_table('D');
+
     vmx_vlapic_msr_changed(v);
+
+    gdprintk(XENLOG_INFO, "------ construct vmcs 5\n");
+    ept_dump_p2m_table('D');
 
     if ( opt_l1d_flush && paging_mode_hap(d) )
         rc = vmx_add_msr(v, MSR_FLUSH_CMD, FLUSH_CMD_L1D,
@@ -1347,6 +1363,9 @@ static int construct_vmcs(struct vcpu *v)
 
  out:
     vmx_vmcs_exit(v);
+
+    gdprintk(XENLOG_INFO, "------ construct vmcs 6\n");
+    ept_dump_p2m_table('D');
 
     return rc;
 }

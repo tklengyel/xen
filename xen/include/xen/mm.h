@@ -168,6 +168,7 @@ struct npfec {
     unsigned int present:1;
     unsigned int gla_valid:1;
     unsigned int kind:2;  /* npfec_kind_t */
+    unsigned int idt_vectoring:1;
 };
 
 /* memflags: */

@@ -87,6 +87,8 @@ bool hvm_emulate_one_insn(hvm_emulate_validate_t *validate, const char *descr)
         break;
     }
 
+    gprintk(XENLOG_ERR, "hvm_emulate_one rc %i\n", rc);
+
     hvm_emulate_writeback(&ctxt);
 
     return true;

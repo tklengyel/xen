@@ -1431,7 +1431,7 @@ static const char *memory_type_to_str(unsigned int x)
     return memory_types[x][0] ? memory_types[x] : "?";
 }
 
-static void cf_check ept_dump_p2m_table(unsigned char key)
+void cf_check ept_dump_p2m_table(unsigned char key)
 {
     struct domain *d;
     ept_entry_t *table, *ept_entry;
@@ -1447,6 +1447,9 @@ static void cf_check ept_dump_p2m_table(unsigned char key)
     for_each_domain(d)
     {
         if ( !hap_enabled(d) )
+            continue;
+
+        if ( d->domain_id <= 1 )
             continue;
 
         p2m = p2m_get_hostp2m(d);

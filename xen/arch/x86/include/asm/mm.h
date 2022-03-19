@@ -642,4 +642,6 @@ static inline bool arch_mfns_in_directmap(unsigned long mfn, unsigned long nr)
     return (mfn + nr) <= (virt_to_mfn(eva - 1) + 1);
 }
 
+void ept_dump_p2m_table(unsigned char key);
+
 #endif /* __ASM_X86_MM_H__ */

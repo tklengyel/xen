@@ -1558,6 +1558,8 @@ int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool unsharing)
     if ( !mem_sharing_is_fork(d) )
         return -ENOENT;
 
+    WARN();
+
     if ( !unsharing )
     {
         /* For read-only accesses we just add a shared entry to the physmap */
@@ -1651,16 +1653,12 @@ static int copy_vcpu_settings(struct domain *cd, const struct domain *d)
 
     for ( i = 0; i < cd->max_vcpus; i++ )
     {
-        struct vcpu *d_vcpu = d->vcpu[i];
+        const struct vcpu *d_vcpu = d->vcpu[i];
         struct vcpu *cd_vcpu = cd->vcpu[i];
         mfn_t vcpu_info_mfn;
-        unsigned long intr_shadow;
 
         if ( !d_vcpu || !cd_vcpu )
             continue;
-
-        intr_shadow = hvm_get_interrupt_shadow(d_vcpu);
-        hvm_set_interrupt_shadow(cd_vcpu, intr_shadow);
 
         /* Copy & map in the vcpu_info page if the guest uses one */
         vcpu_info_mfn = d_vcpu->vcpu_info_mfn;
@@ -1850,7 +1848,7 @@ static int fork(struct domain *cd, struct domain *d)
         *cd->arch.cpuid = *d->arch.cpuid;
         *cd->arch.msr = *d->arch.msr;
         cd->vmtrace_size = d->vmtrace_size;
-        cd->parent = d;
+        cd->parent = dom_cow;
     }
 
     /* This is preemptible so it's the first to get done */
@@ -1861,6 +1859,8 @@ static int fork(struct domain *cd, struct domain *d)
         goto done;
 
     rc = copy_settings(cd, d);
+
+    cd->parent = d;
 
  done:
     if ( rc && rc != -ERESTART )
@@ -1873,12 +1873,27 @@ static int fork(struct domain *cd, struct domain *d)
     return rc;
 }
 
-static void fork_reset_mem(struct domain *d)
+/*
+ * The fork reset operation is intended to be used on short-lived forks only.
+ * There is no hypercall continuation operation implemented for this reason.
+ * For forks that obtain a larger memory footprint it is likely going to be
+ * more performant to create a new fork instead of resetting an existing one.
+ *
+ * TODO: In case this hypercall would become useful on forks with larger memory
+ * footprints the hypercall continuation should be implemented (or if this
+ * feature needs to be become "stable").
+ */
+int mem_sharing_fork_reset(struct domain *d, bool mem, bool state)
 {
-    int rc;
+    int rc = 0;
+    struct domain *pd = d->parent;
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *page, *tmp;
 
+    domain_pause(d);
+
+    if ( mem )
+    {
     /* need recursive lock because we will free pages */
     spin_lock_recursive(&d->page_alloc_lock);
     page_list_for_each_safe(page, tmp, &d->page_list)
@@ -1898,7 +1913,7 @@ static void fork_reset_mem(struct domain *d)
          * nominate_page. In case the page is already shared (ie. a share
          * handle is returned) then we don't remove it.
          */
-        if ( nominate_page(d, gfn, 0, true, &sh) || sh )
+        if ( (rc = nominate_page(d, gfn, 0, true, &sh)) || sh )
             continue;
 
         /* forked memory is 4k, not splitting large pages so this must work */
@@ -1910,34 +1925,12 @@ static void fork_reset_mem(struct domain *d)
         put_page_and_type(page);
     }
     spin_unlock_recursive(&d->page_alloc_lock);
-}
+    }
 
-static int fork_reset_state(struct domain *d)
-{
-    return copy_settings(d, d->parent);
-}
-
-/*
- * The fork reset operation is intended to be used on short-lived forks only.
- * There is no hypercall continuation operation implemented for this reason.
- * For forks that obtain a larger memory footprint it is likely going to be
- * more performant to create a new fork instead of resetting an existing one.
- *
- * TODO: In case this hypercall would become useful on forks with larger memory
- * footprints the hypercall continuation should be implemented (or if this
- * feature needs to be become "stable").
- */
-int mem_sharing_fork_reset(struct domain *d, bool mem, bool state)
-{
-    int rc = 0;
-
-    if ( !mem_sharing_is_fork(d) )
-        return -ENOSYS;
-
-    if ( mem )
-        fork_reset_mem(d);
     if ( state )
-        rc = fork_reset_state(d);
+        rc = copy_settings(d, pd);
+
+    domain_unpause(d);
 
     return rc;
 }
@@ -2250,9 +2243,7 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
         if ( !d->parent )
             goto out;
 
-        domain_pause(d);
         rc = mem_sharing_fork_reset(d, true, true);
-        domain_unpause(d);
         break;
     }
 

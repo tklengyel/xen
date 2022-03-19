@@ -329,7 +329,8 @@ bool hvm_monitor_check_p2m(unsigned long gla, gfn_t gfn, uint32_t pfec,
 }
 
 int hvm_monitor_vmexit(unsigned long exit_reason,
-                       unsigned long exit_qualification)
+                       unsigned long exit_qualification,
+                       unsigned long data)
 {
    /*
     * !rc    continue normally
@@ -339,12 +340,10 @@ int hvm_monitor_vmexit(unsigned long exit_reason,
     struct arch_domain *ad = &curr->domain->arch;
     vm_event_request_t req = {};
 
-    if ( !ad->monitor.vmexit_enabled )
-        return 0;
-
     req.reason = VM_EVENT_REASON_VMEXIT;
     req.u.vmexit.reason = exit_reason;
     req.u.vmexit.qualification = exit_qualification;
+    req.u.vmexit.u.data = data;
 
     set_npt_base(curr, &req);
 

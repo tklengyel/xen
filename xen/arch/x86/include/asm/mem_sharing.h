@@ -79,7 +79,7 @@ static inline int mem_sharing_unshare_page(struct domain *d,
 
 static inline bool mem_sharing_is_fork(const struct domain *d)
 {
-    return d->parent;
+    return d->parent && d->parent != dom_cow;
 }
 
 int mem_sharing_fork_page(struct domain *d, gfn_t gfn,

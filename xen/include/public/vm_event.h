@@ -399,6 +399,10 @@ struct vm_event_emul_insn_data {
 struct vm_event_vmexit {
     uint64_t reason;
     uint64_t qualification;
+    union {
+        uint64_t data;
+        uint64_t gpa;   /* gpa of ept violation if reason = 48 */
+    } u;
 };
 
 typedef struct vm_event_st {

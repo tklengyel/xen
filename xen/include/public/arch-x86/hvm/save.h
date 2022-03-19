@@ -52,6 +52,7 @@ DECLARE_HVM_SAVE_TYPE(HEADER, 1, struct hvm_save_header);
  * Compat:
  *     - Pre-3.4 didn't have msr_tsc_aux
  *     - Pre-4.7 didn't have fpu_initialised
+ *     - Pre 4.17 didn't have non-register state
  */
 
 struct hvm_hw_cpu {
@@ -166,10 +167,11 @@ struct hvm_hw_cpu {
 #define XEN_X86_FPU_INITIALISED         (1U<<_XEN_X86_FPU_INITIALISED)
     uint32_t flags;
 
-    uint32_t interruptibility_state;
+    /* non-register state */
     uint32_t activity_state;
-    uint32_t pad0;
+    uint32_t interruptibility_state;
     uint64_t pending_dbg;
+    uint32_t pad0;
 };
 
 struct hvm_hw_cpu_compat {

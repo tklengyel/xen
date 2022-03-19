@@ -47,6 +47,7 @@
 #include <asm/hvm/vlapic.h>
 #include <asm/x86_emulate.h>
 #include <asm/hvm/vpt.h>
+#include <asm/mm.h>
 #include <public/hvm/save.h>
 #include <asm/hvm/trace.h>
 #include <asm/hvm/monitor.h>
@@ -456,6 +457,9 @@ static int cf_check vmx_vcpu_initialise(struct vcpu *v)
 
     vcpu_2_nvmx(v).vmxon_region_pa = INVALID_PADDR;
 
+    gdprintk(XENLOG_INFO, "------ vmx_vcpu_init 1\n");
+    ept_dump_p2m_table('D');
+
     if ( (rc = vmx_create_vmcs(v)) != 0 )
     {
         dprintk(XENLOG_WARNING,
@@ -463,6 +467,9 @@ static int cf_check vmx_vcpu_initialise(struct vcpu *v)
                 v->vcpu_id, rc);
         return rc;
     }
+
+    gdprintk(XENLOG_INFO, "------ vmx_vcpu_init 2\n");
+    ept_dump_p2m_table('D');
 
     /*
      * It's rare but still possible that domain has already been in log-dirty
@@ -486,6 +493,9 @@ static int cf_check vmx_vcpu_initialise(struct vcpu *v)
             return rc;
         }
     }
+
+    gdprintk(XENLOG_INFO, "------ vmx_vcpu_init 3\n");
+    ept_dump_p2m_table('D');
 
     vmx_install_vlapic_mapping(v);
     vmx_init_ipt(v);
@@ -713,7 +723,7 @@ static void vmx_restore_dr(struct vcpu *v)
 
 static void vmx_vmcs_save(struct vcpu *v, struct hvm_hw_cpu *c)
 {
-    unsigned long ev;
+    unsigned long ev, activity_state, intr_state;
 
     vmx_vmcs_enter(v);
 
@@ -731,7 +741,14 @@ static void vmx_vmcs_save(struct vcpu *v, struct hvm_hw_cpu *c)
         c->error_code = ev;
     }
 
+    __vmread(GUEST_ACTIVITY_STATE, &activity_state);
+    __vmread(GUEST_INTERRUPTIBILITY_INFO, &intr_state);
+    __vmread(GUEST_PENDING_DBG_EXCEPTIONS, &c->pending_dbg);
+
     vmx_vmcs_exit(v);
+
+    c->activity_state = activity_state;
+    c->interruptibility_state = intr_state;
 }
 
 static int vmx_restore_cr0_cr3(
@@ -806,6 +823,10 @@ static int vmx_vmcs_restore(struct vcpu *v, struct hvm_hw_cpu *c)
     __vmwrite(GUEST_SYSENTER_EIP, c->sysenter_eip);
 
     __vmwrite(GUEST_DR7, c->dr7);
+
+    __vmwrite(GUEST_ACTIVITY_STATE, c->activity_state);
+    __vmwrite(GUEST_INTERRUPTIBILITY_INFO, c->interruptibility_state);
+    __vmwrite(GUEST_PENDING_DBG_EXCEPTIONS, c->pending_dbg);
 
     if ( c->pending_valid &&
          hvm_event_needs_reinjection(c->pending_type, c->pending_vector) )
@@ -1324,9 +1345,7 @@ cf_check vmx_get_interrupt_shadow(struct vcpu *v)
 {
     unsigned long intr_shadow;
 
-    vmx_vmcs_enter(v);
     __vmread(GUEST_INTERRUPTIBILITY_INFO, &intr_shadow);
-    vmx_vmcs_exit(v);
 
     return intr_shadow;
 }
@@ -1334,28 +1353,7 @@ cf_check vmx_get_interrupt_shadow(struct vcpu *v)
 static void cf_check vmx_set_interrupt_shadow(
     struct vcpu *v, unsigned int intr_shadow)
 {
-    vmx_vmcs_enter(v);
     __vmwrite(GUEST_INTERRUPTIBILITY_INFO, intr_shadow);
-    vmx_vmcs_exit(v);
-}
-
-static unsigned long cf_check vmx_get_pending_dbg(struct vcpu *v)
-{
-    unsigned long val;
-
-    vmx_vmcs_enter(v);
-    __vmread(GUEST_PENDING_DBG_EXCEPTIONS, &val);
-    vmx_vmcs_exit(v);
-
-    return val;
-}
-
-static void cf_check vmx_set_pending_dbg(
-    struct vcpu *v, unsigned long val)
-{
-    vmx_vmcs_enter(v);
-    __vmwrite(GUEST_PENDING_DBG_EXCEPTIONS, val);
-    vmx_vmcs_exit(v);
 }
 
 static void vmx_load_pdptrs(struct vcpu *v)
@@ -2511,8 +2509,6 @@ static struct hvm_function_table __initdata_cf_clobber vmx_function_table = {
     .load_cpu_ctxt        = vmx_load_vmcs_ctxt,
     .get_interrupt_shadow = vmx_get_interrupt_shadow,
     .set_interrupt_shadow = vmx_set_interrupt_shadow,
-    .get_pending_dbg      = vmx_get_pending_dbg,
-    .set_pending_dbg      = vmx_set_pending_dbg,
     .guest_x86_mode       = vmx_guest_x86_mode,
     .get_cpl              = _vmx_get_cpl,
     .get_segment_register = vmx_get_segment_register,
@@ -3636,7 +3632,7 @@ static void cf_check vmx_wbinvd_intercept(void)
         wbinvd();
 }
 
-static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
+static void ept_handle_violation(ept_qual_t q, paddr_t gpa, bool idt_vec)
 {
     unsigned long gla, gfn = gpa >> PAGE_SHIFT;
     mfn_t mfn;
@@ -3690,6 +3686,8 @@ static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
     else
         gla = ~0ull;
 
+    npfec.idt_vectoring = idt_vec;
+
     ret = hvm_hap_nested_page_fault(gpa, gla, npfec);
     switch ( ret )
     {
@@ -3719,6 +3717,8 @@ static void ept_handle_violation(ept_qual_t q, paddr_t gpa)
 
     if ( q.gla_valid )
         gprintk(XENLOG_ERR, " --- GLA %#lx\n", gla);
+    if ( idt_vec )
+        gprintk(XENLOG_ERR, " --- IDT vectoring\n");
 
     domain_crash(d);
 }
@@ -3959,7 +3959,6 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     }
 
     __vmread(VM_EXIT_REASON, &exit_reason);
-    __vmread(EXIT_QUALIFICATION, &exit_qualification);
 
     if ( hvm_long_mode_active(v) )
         HVMTRACE_ND(VMEXIT64, 0, 1/*cycles*/, exit_reason,
@@ -3997,8 +3996,18 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     /* Now enable interrupts so it's safe to take locks. */
     local_irq_enable();
 
-    if ( unlikely(hvm_monitor_vmexit(exit_reason, exit_qualification)) )
-        return;
+    if ( unlikely(currd->arch.monitor.vmexit_enabled) )
+    {
+        uint64_t data = 0;
+
+        __vmread(EXIT_QUALIFICATION, &exit_qualification);
+
+        if ( exit_reason == EXIT_REASON_EPT_VIOLATION )
+            __vmread(GUEST_PHYSICAL_ADDRESS, &data);
+
+        if ( hvm_monitor_vmexit(exit_reason, exit_qualification, data) )
+            return;
+    }
 
     /*
      * If the guest has the ability to switch EPTP without an exit,
@@ -4487,7 +4496,8 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
 
         __vmread(GUEST_PHYSICAL_ADDRESS, &gpa);
         __vmread(EXIT_QUALIFICATION, &exit_qualification);
-        ept_handle_violation(exit_qualification, gpa);
+        ept_handle_violation(exit_qualification, gpa,
+                             !!(idtv_info & INTR_INFO_VALID_MASK));
         break;
     }
 

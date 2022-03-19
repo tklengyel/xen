@@ -43,6 +43,7 @@
 #include <xen/vm_event.h>
 #include <asm/shadow.h>
 #include <asm/hap.h>
+#include <asm/mm.h>
 #include <asm/current.h>
 #include <asm/e820.h>
 #include <asm/io.h>
@@ -897,9 +898,6 @@ static int cf_check hvm_save_cpu_ctxt(struct vcpu *v, hvm_domain_context_t *h)
         ctxt.flags = XEN_X86_FPU_INITIALISED;
     }
 
-    ctxt.interruptibility_state = hvm_get_interrupt_shadow(v);
-    ctxt.pending_dbg = hvm_get_pending_dbg(v);
-
     return hvm_save_entry(CPU, v->vcpu_id, h, &ctxt);
 }
 
@@ -1154,9 +1152,6 @@ static int cf_check hvm_load_cpu_ctxt(struct domain *d, hvm_domain_context_t *h)
     v->arch.dr[3] = ctxt.dr3;
     v->arch.dr6   = ctxt.dr6;
     v->arch.dr7   = ctxt.dr7;
-
-    hvm_set_interrupt_shadow(v, ctxt.interruptibility_state);
-    hvm_set_pending_dbg(v, ctxt.pending_dbg);
 
     hvmemul_cancel(v);
 
@@ -1557,14 +1552,23 @@ int hvm_vcpu_initialise(struct vcpu *v)
     if ( rc != 0 ) /* teardown: vlapic_destroy */
         goto fail2;
 
+    gdprintk(XENLOG_INFO, "------ hvm_vcpu_initialise 0\n");
+    ept_dump_p2m_table('D');
+
     rc = alternative_call(hvm_funcs.vcpu_initialise, v);
     if ( rc != 0 ) /* teardown: hvm_funcs.vcpu_destroy */
         goto fail3;
+
+    gdprintk(XENLOG_INFO, "------ hvm_vcpu_initialise 1\n");
+    ept_dump_p2m_table('D');
 
     softirq_tasklet_init(&v->arch.hvm.assert_evtchn_irq_tasklet,
                          hvm_assert_evtchn_irq_tasklet, v);
 
     v->arch.hvm.inject_event.vector = HVM_EVENT_VECTOR_UNSET;
+
+    gdprintk(XENLOG_INFO, "------ hvm_vcpu_initialise 2\n");
+    ept_dump_p2m_table('D');
 
     rc = hvmemul_cache_init(v);
     if ( rc )
@@ -1924,6 +1928,12 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
          (npfec.write_access &&
           (p2m_is_discard_write(p2mt) || (p2mt == p2m_ioreq_server))) )
     {
+        /* Don't try to emulate event delivery through the IDT */
+        if ( npfec.idt_vectoring )
+        {
+            rc = 0;
+            goto out_put_gfn;
+        }
         if ( !handle_mmio_with_translation(gla, gpa >> PAGE_SHIFT, npfec) )
             hvm_inject_hw_exception(TRAP_gp_fault, 0);
         rc = 1;
@@ -3891,7 +3901,7 @@ enum hvm_intblk hvm_interrupt_blocked(struct vcpu *v, struct hvm_intack intack)
          !(guest_cpu_user_regs()->eflags & X86_EFLAGS_IF) )
         return hvm_intblk_rflags_ie;
 
-    intr_shadow = hvm_get_interrupt_shadow(v);
+    intr_shadow = alternative_call(hvm_funcs.get_interrupt_shadow, v);
 
     if ( intr_shadow & (HVM_INTR_SHADOW_STI|HVM_INTR_SHADOW_MOV_SS) )
         return hvm_intblk_shadow;
