@@ -1888,11 +1888,12 @@ static int copy_settings(struct domain *cd, struct domain *d)
 static int fork(struct domain *cd, struct domain *d)
 {
     int rc = -EBUSY;
+    struct mem_sharing_domain *msd = &cd->arch.hvm.mem_sharing;
 
     if ( !cd->controller_pause_count )
         return rc;
 
-    if ( !cd->parent )
+    if ( !msd->fork_started )
     {
         if ( !get_domain(d) )
         {
@@ -1905,7 +1906,7 @@ static int fork(struct domain *cd, struct domain *d)
         *cd->arch.cpuid = *d->arch.cpuid;
         *cd->arch.msr = *d->arch.msr;
         cd->vmtrace_size = d->vmtrace_size;
-        cd->parent = d;
+        msd->fork_started = 1;
     }
 
     /* This is preemptible so it's the first to get done */
@@ -1918,8 +1919,11 @@ static int fork(struct domain *cd, struct domain *d)
     rc = copy_settings(cd, d);
 
  done:
-    if ( rc && rc != -ERESTART )
+    if ( !rc )
+        cd->parent = d;
+    else if ( rc != -ERESTART )
     {
+        msd->fork_started = 0;
         cd->parent = NULL;
         domain_unpause(d);
         put_domain(d);

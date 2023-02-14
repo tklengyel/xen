@@ -34,6 +34,14 @@ struct mem_sharing_domain
     bool enabled, block_interrupts;
 
     /*
+     * We need to avoid trying to nominate pages for forking until the
+     * fork operation is completely finished. As parts of fork creation
+     * is restartable we mark here if the process started to skip the
+     * non-restartable portion.
+     */
+    bool fork_started;
+
+    /*
      * When releasing shared gfn's in a preemptible manner, recall where
      * to resume the search.
      */
