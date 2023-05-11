@@ -4883,6 +4883,8 @@ bool vmx_vmenter_helper(const struct cpu_user_regs *regs)
 
     HVMTRACE_ND(VMENTRY, 0, 1/*cycles*/);
 
+    vmx_fpu_dirty_intercept();
+
     __vmwrite(GUEST_RIP,    regs->rip);
     __vmwrite(GUEST_RSP,    regs->rsp);
     __vmwrite(GUEST_RFLAGS, regs->rflags | X86_EFLAGS_MBS);
