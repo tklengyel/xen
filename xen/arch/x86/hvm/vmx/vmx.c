@@ -3048,8 +3048,29 @@ static int get_instruction_length(void)
     unsigned long len;
 
     __vmread(VM_EXIT_INSTRUCTION_LEN, &len); /* Safe: callers audited */
-    BUG_ON((len < 1) || (len > MAX_INST_LEN));
+
     return len;
+}
+
+static void get_exit_infos(struct vmexit_info *info)
+{
+    __vmread(EXIT_QUALIFICATION, &info->exit_qualification);
+    __vmread(VM_EXIT_INTR_INFO, &info->interruption_info);
+    __vmread(VM_EXIT_INTR_ERROR_CODE, &info->interruption_error);
+    __vmread(IDT_VECTORING_INFO, &info->idt_vectoring_info);
+    __vmread(IDT_VECTORING_ERROR_CODE, &info->idt_vectoring_error);
+    __vmread(VM_EXIT_INSTRUCTION_LEN, &info->instruction_length);
+    __vmread(VMX_INSTRUCTION_INFO, &info->instruction_info);
+    __vmread(GUEST_LINEAR_ADDRESS, &info->guest_linear_address);
+
+    /* poison value */
+    __vmwrite(VM_EXIT_INTR_INFO, 0xbeef);
+    __vmwrite(VM_EXIT_INTR_ERROR_CODE, 0xbeef);
+    __vmwrite(IDT_VECTORING_INFO, 0xbeef);
+    __vmwrite(IDT_VECTORING_ERROR_CODE, 0xbeef);
+    __vmwrite(VM_EXIT_INSTRUCTION_LEN, 0xbeef);
+    __vmwrite(VMX_INSTRUCTION_INFO, 0xbeef);
+    __vmwrite(GUEST_LINEAR_ADDRESS, 0xbeef);
 }
 
 void update_guest_eip(void)
@@ -4141,9 +4162,11 @@ void vmx_vmexit_handler(struct cpu_user_regs *regs)
     if ( unlikely(currd->arch.monitor.vmexit_enabled) )
     {
         int rc;
+        struct vmexit_info info = { .exit_reason = exit_reason };
 
-        __vmread(EXIT_QUALIFICATION, &exit_qualification);
-        rc = hvm_monitor_vmexit(exit_reason, exit_qualification);
+        get_exit_infos(&info);
+
+        rc = hvm_monitor_vmexit(&info);
         if ( rc < 0 )
             goto exit_and_crash;
         if ( rc )

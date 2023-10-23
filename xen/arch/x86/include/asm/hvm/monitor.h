@@ -17,6 +17,18 @@ enum hvm_monitor_debug_type
     HVM_MONITOR_DEBUG_EXCEPTION,
 };
 
+struct vmexit_info {
+    unsigned long exit_reason;
+    unsigned long exit_qualification;
+    unsigned long interruption_info;
+    unsigned long interruption_error;
+    unsigned long idt_vectoring_info;
+    unsigned long idt_vectoring_error;
+    unsigned long instruction_length;
+    unsigned long instruction_info;
+    unsigned long guest_linear_address;
+};
+
 /*
  * Called for current VCPU on crX/MSR changes by guest. Bool return signals
  * whether emulation should be postponed.
@@ -40,8 +52,7 @@ bool hvm_monitor_emul_unimplemented(void);
 
 bool hvm_monitor_check_p2m(unsigned long gla, gfn_t gfn, uint32_t pfec,
                            uint16_t kind);
-int hvm_monitor_vmexit(unsigned long exit_reason,
-                       unsigned long exit_qualification);
+int hvm_monitor_vmexit(struct vmexit_info *info);
 
 int hvm_monitor_io(unsigned int port, unsigned int bytes,
                    bool in, bool str);

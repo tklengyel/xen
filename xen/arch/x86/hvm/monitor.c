@@ -328,8 +328,7 @@ bool hvm_monitor_check_p2m(unsigned long gla, gfn_t gfn, uint32_t pfec,
     return monitor_traps(curr, true, &req) >= 0;
 }
 
-int hvm_monitor_vmexit(unsigned long exit_reason,
-                       unsigned long exit_qualification)
+int hvm_monitor_vmexit(struct vmexit_info *info)
 {
     struct vcpu *curr = current;
     struct arch_domain *ad = &curr->domain->arch;
@@ -338,8 +337,15 @@ int hvm_monitor_vmexit(unsigned long exit_reason,
     ASSERT(ad->monitor.vmexit_enabled);
 
     req.reason = VM_EVENT_REASON_VMEXIT;
-    req.u.vmexit.arch.vmx.reason = exit_reason;
-    req.u.vmexit.arch.vmx.qualification = exit_qualification;
+    req.u.vmexit.arch.vmx.reason = info->exit_reason;
+    req.u.vmexit.arch.vmx.qualification = info->exit_qualification;
+    req.u.vmexit.arch.vmx.gla = info->guest_linear_address;
+    req.u.vmexit.arch.vmx.interruption_info = info->interruption_info;
+    req.u.vmexit.arch.vmx.interruption_error = info->interruption_error;
+    req.u.vmexit.arch.vmx.idt_vectoring_info = info->idt_vectoring_info;
+    req.u.vmexit.arch.vmx.idt_vectoring_error = info->idt_vectoring_error;
+    req.u.vmexit.arch.vmx.instruction_length = info->instruction_length;
+    req.u.vmexit.arch.vmx.instruction_info = info->instruction_info;
 
     set_npt_base(curr, &req);
 
