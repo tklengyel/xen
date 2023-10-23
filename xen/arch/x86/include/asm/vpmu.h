@@ -36,6 +36,7 @@ struct arch_vpmu_ops {
     int (*arch_vpmu_save)(struct vcpu *v, bool_t to_guest);
     int (*arch_vpmu_load)(struct vcpu *v, bool_t from_guest);
     void (*arch_vpmu_dump)(const struct vcpu *);
+    int (*get_msr)(struct vcpu *v, unsigned int msr, uint64_t *val);
 
 #ifdef CONFIG_MEM_SHARING
     int (*allocate_context)(struct vcpu *v);
@@ -106,6 +107,7 @@ void vpmu_save(struct vcpu *v);
 void cf_check vpmu_save_force(void *arg);
 int vpmu_load(struct vcpu *v, bool_t from_guest);
 void vpmu_dump(struct vcpu *v);
+int vpmu_get_msr(struct vcpu *v, unsigned int msr, uint64_t *val);
 
 static inline int vpmu_do_wrmsr(unsigned int msr, uint64_t msr_content)
 {

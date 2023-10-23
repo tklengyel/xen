@@ -634,6 +634,16 @@ void vpmu_dump(struct vcpu *v)
         alternative_vcall(vpmu_ops.arch_vpmu_dump, v);
 }
 
+int vpmu_get_msr(struct vcpu *v, unsigned int msr, uint64_t *val)
+{
+    ASSERT(v != current);
+
+    if ( !vpmu_is_set(vcpu_vpmu(v), VPMU_CONTEXT_ALLOCATED) )
+        return -EOPNOTSUPP;
+
+    return alternative_call(vpmu_ops.get_msr, v, msr, val);
+}
+
 long do_xenpmu_op(
     unsigned int op, XEN_GUEST_HANDLE_PARAM(xen_pmu_params_t) arg)
 {

@@ -2180,6 +2180,41 @@ int xc_domain_soft_reset(xc_interface *xch,
     domctl.domain = domid;
     return do_domctl(xch, &domctl);
 }
+
+int xc_vcpu_get_msrs(xc_interface *xch, uint32_t domid, uint32_t vcpu,
+                     uint32_t count, xc_vcpumsr_t *msrs)
+{
+    int rc;
+    DECLARE_DOMCTL;
+    domctl.cmd = XEN_DOMCTL_get_vcpu_msrs;
+    domctl.domain = domid;
+    domctl.u.vcpu_msrs.vcpu = vcpu;
+    domctl.u.vcpu_msrs.msr_count = count;
+
+    if ( !msrs )
+    {
+        if ( (rc = xc_domctl(xch, &domctl)) < 0 )
+            return rc;
+
+        return domctl.u.vcpu_msrs.msr_count;
+    }
+    else
+    {
+        DECLARE_HYPERCALL_BOUNCE(msrs, count * sizeof(xc_vcpumsr_t), XC_HYPERCALL_BUFFER_BOUNCE_BOTH);
+
+        if ( xc_hypercall_bounce_pre(xch, msrs) )
+            return -1;
+
+        set_xen_guest_handle(domctl.u.vcpu_msrs.msrs, msrs);
+
+        rc = do_domctl(xch, &domctl);
+
+        xc_hypercall_bounce_post(xch, msrs);
+
+        return rc;
+    }
+}
+
 /*
  * Local variables:
  * mode: C

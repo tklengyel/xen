@@ -507,6 +507,12 @@ static int cf_check amd_vpmu_initialise(struct vcpu *v)
     return 0;
 }
 
+static int cf_check amd_get_msr(struct vcpu *v, unsigned int msr, uint64_t *val)
+{
+    /* TODO in case an external tool needs access to these MSRs */
+    return -ENOSYS;
+}
+
 #ifdef CONFIG_MEM_SHARING
 static int cf_check amd_allocate_context(struct vcpu *v)
 {
@@ -524,6 +530,7 @@ static const struct arch_vpmu_ops __initconst_cf_clobber amd_vpmu_ops = {
     .arch_vpmu_save = amd_vpmu_save,
     .arch_vpmu_load = amd_vpmu_load,
     .arch_vpmu_dump = amd_vpmu_dump,
+    .get_msr = amd_get_msr,
 
 #ifdef CONFIG_MEM_SHARING
     .allocate_context = amd_allocate_context,

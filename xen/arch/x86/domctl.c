@@ -1106,8 +1106,7 @@ long arch_do_domctl(
             break;
 
         ret = -EINVAL;
-        if ( (v == curr) || /* no vcpu_pause() */
-             !is_pv_domain(d) )
+        if ( v == curr )
             break;
 
         /* Count maximum number of optional msrs. */
@@ -1129,36 +1128,48 @@ long arch_do_domctl(
 
                 vcpu_pause(v);
 
-                for ( j = 0; j < ARRAY_SIZE(msrs_to_send); ++j )
+                for ( j = 0; j < ARRAY_SIZE(msrs_to_send) && i < vmsrs->msr_count; ++j )
                 {
                     uint64_t val;
-                    int rc = guest_rdmsr(v, msrs_to_send[j], &val);
+                    int rc;
+
+                    if ( copy_from_guest_offset(&msr, vmsrs->msrs, i, 1) )
+                    {
+                        ret = -EFAULT;
+                        break;
+                    }
+
+                    msr.index = msr.index ?: msrs_to_send[j];
+
+                    rc = guest_rdmsr(v, msr.index, &val);
 
                     /*
                      * It is the programmers responsibility to ensure that
-                     * msrs_to_send[] contain generally-read/write MSRs.
+                     * the msr requested contain generally-read/write MSRs.
                      * X86EMUL_EXCEPTION here implies a missing feature, and
                      * that the guest doesn't have access to the MSR.
                      */
                     if ( rc == X86EMUL_EXCEPTION )
                         continue;
+                    if ( rc == X86EMUL_UNHANDLEABLE )
+                        ret = vpmu_get_msr(v, msr.index, &val);
+                    else
+                        ret = (rc == X86EMUL_OKAY) ? 0 : -ENXIO;
 
-                    if ( rc != X86EMUL_OKAY )
+                    if ( ret )
                     {
                         ASSERT_UNREACHABLE();
-                        ret = -ENXIO;
                         break;
                     }
 
                     if ( !val )
                         continue; /* Skip empty MSRs. */
 
-                    if ( i < vmsrs->msr_count && !ret )
+                    msr.value = val;
+                    if ( copy_to_guest_offset(vmsrs->msrs, i, &msr, 1) )
                     {
-                        msr.index = msrs_to_send[j];
-                        msr.value = val;
-                        if ( copy_to_guest_offset(vmsrs->msrs, i, &msr, 1) )
-                            ret = -EFAULT;
+                        ret = -EFAULT;
+                        break;
                     }
                     ++i;
                 }
