@@ -858,6 +858,10 @@ int xc_vcpu_getinfo(xc_interface *xch,
                     uint32_t vcpu,
                     xc_vcpuinfo_t *info);
 
+typedef struct xen_domctl_vcpu_msr xc_vcpumsr_t;
+int xc_vcpu_get_msrs(xc_interface *xch, uint32_t domid, uint32_t vcpu,
+                     uint32_t count, xc_vcpumsr_t *msrs);
+
 long long xc_domain_get_cpu_usage(xc_interface *xch,
                                   uint32_t domid,
                                   int vcpu);

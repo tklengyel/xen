@@ -878,6 +878,42 @@ static int cf_check core2_vpmu_initialise(struct vcpu *v)
     return 0;
 }
 
+static int cf_check core2_vpmu_get_msr(struct vcpu *v, unsigned int msr,
+                                       uint64_t *val)
+{
+    int type, index, ret = 0;
+    struct vpmu_struct *vpmu = vcpu_vpmu(v);
+    struct xen_pmu_intel_ctxt *core2_vpmu_cxt = vpmu->context;
+    uint64_t *fixed_counters = vpmu_reg_pointer(core2_vpmu_cxt, fixed_counters);
+    struct xen_pmu_cntr_pair *xen_pmu_cntr_pair =
+        vpmu_reg_pointer(core2_vpmu_cxt, arch_counters);
+
+    if ( !is_core2_vpmu_msr(msr, &type, &index) )
+        return -EINVAL;
+
+    vcpu_pause(v);
+
+    if ( msr == MSR_CORE_PERF_GLOBAL_OVF_CTRL )
+        *val = core2_vpmu_cxt->global_ovf_ctrl;
+    else if ( msr == MSR_CORE_PERF_GLOBAL_STATUS )
+        *val = core2_vpmu_cxt->global_status;
+    else if ( msr == MSR_CORE_PERF_GLOBAL_CTRL )
+        *val = core2_vpmu_cxt->global_ctrl;
+    else if ( msr >= MSR_CORE_PERF_FIXED_CTR0 &&
+              msr < MSR_CORE_PERF_FIXED_CTR0 + fixed_pmc_cnt )
+        *val = fixed_counters[msr - MSR_CORE_PERF_FIXED_CTR0];
+    else if ( msr >= MSR_P6_PERFCTR(0) && msr < MSR_P6_PERFCTR(arch_pmc_cnt) )
+        *val = xen_pmu_cntr_pair[msr - MSR_P6_PERFCTR(0)].counter;
+    else if ( msr >= MSR_P6_EVNTSEL(0) && msr < MSR_P6_EVNTSEL(arch_pmc_cnt) )
+        *val = xen_pmu_cntr_pair[msr - MSR_P6_EVNTSEL(0)].control;
+    else
+        ret = -EINVAL;
+
+    vcpu_unpause(v);
+
+    return ret;
+}
+
 static const struct arch_vpmu_ops __initconst_cf_clobber core2_vpmu_ops = {
     .initialise = core2_vpmu_initialise,
     .do_wrmsr = core2_vpmu_do_wrmsr,
@@ -887,6 +923,7 @@ static const struct arch_vpmu_ops __initconst_cf_clobber core2_vpmu_ops = {
     .arch_vpmu_save = core2_vpmu_save,
     .arch_vpmu_load = core2_vpmu_load,
     .arch_vpmu_dump = core2_vpmu_dump,
+    .get_msr = core2_vpmu_get_msr,
 
 #ifdef CONFIG_MEM_SHARING
     .allocate_context = core2_vpmu_alloc_resource,

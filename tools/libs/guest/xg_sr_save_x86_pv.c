@@ -719,6 +719,8 @@ static int write_one_vcpu_msrs(struct xc_sr_context *ctx, uint32_t id)
         goto err;
     }
 
+    memset(buffer, 0, buffersz);
+
     set_xen_guest_handle(domctl.u.vcpu_msrs.msrs, buffer);
     if ( xc_domctl(xch, &domctl) < 0 )
     {
