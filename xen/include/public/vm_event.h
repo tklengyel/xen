@@ -386,6 +386,13 @@ struct vm_event_vmexit {
         struct {
             uint64_t reason;
             uint64_t qualification;
+            uint64_t gla;
+            uint32_t interruption_info;
+            uint32_t interruption_error;
+            uint32_t idt_vectoring_info;
+            uint32_t idt_vectoring_error;
+            uint32_t instruction_length;
+            uint32_t instruction_info;
         } vmx;
     } arch;
 };
