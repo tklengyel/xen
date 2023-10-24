@@ -295,6 +295,8 @@
 #define IA32_DEBUGCTLMSR_BTINT		(1<<8) /* Branch Trace Interrupt */
 #define IA32_DEBUGCTLMSR_BTS_OFF_OS	(1<<9)  /* BTS off if CPL 0 */
 #define IA32_DEBUGCTLMSR_BTS_OFF_USR	(1<<10) /* BTS off if CPL > 0 */
+#define IA32_DEBUGCTLMSR_FREEZE_ON_PMI (1<<12) /* Perfmon stops on PMI */
+#define IA32_DEBUGCTLMSR_FREEZE_WHILE_SMM (1<<14) /* Perfmon stops while in SMM */
 #define IA32_DEBUGCTLMSR_RTM		(1<<15) /* RTM debugging enable */
 
 #define MSR_IA32_LASTBRANCHFROMIP	0x000001db
