@@ -3606,7 +3606,8 @@ static int cf_check vmx_msr_write_intercept(
         break;
 
     case MSR_IA32_DEBUGCTLMSR:
-        rsvd = ~(IA32_DEBUGCTLMSR_LBR | IA32_DEBUGCTLMSR_BTF);
+        rsvd = ~(IA32_DEBUGCTLMSR_LBR | IA32_DEBUGCTLMSR_BTF |
+                 IA32_DEBUGCTLMSR_FREEZE_ON_PMI | IA32_DEBUGCTLMSR_FREEZE_WHILE_SMM);
 
         /* TODO: Wire vPMU settings properly through the CPUID policy */
         if ( vpmu_is_set(vcpu_vpmu(v), VPMU_CPU_HAS_BTS) )
