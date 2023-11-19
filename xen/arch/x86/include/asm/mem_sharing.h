@@ -74,7 +74,9 @@ int mem_sharing_fork_page(struct domain *d, gfn_t gfn,
                           bool unsharing);
 
 int mem_sharing_fork_reset(struct domain *d, bool reset_state,
-                           bool reset_memory);
+                           bool reset_memory, bool reset_dirty);
+
+int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn);
 
 /*
  * If called by a foreign domain, possible errors are
@@ -141,6 +143,12 @@ static inline int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool lock)
 
 static inline int mem_sharing_fork_reset(struct domain *d, bool reset_state,
                                          bool reset_memory)
+{
+    return -EOPNOTSUPP;
+}
+
+static inline int mem_sharing_reset_dirty_page(struct domain *d,
+                                               unsigned long gfn)
 {
     return -EOPNOTSUPP;
 }

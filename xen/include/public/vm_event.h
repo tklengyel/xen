@@ -118,6 +118,10 @@
  * Remove unshared entries from physmap (if VM is fork)
  */
 #define VM_EVENT_FLAG_RESET_FORK_MEMORY  (1 << 15)
+/*
+ * Reset fork's dirty memory as logged by hardware (ie. PML)
+ */
+#define VM_EVENT_FLAG_RESET_FORK_DIRTY_MEMORY  (1 << 16)
 
 /*
  * Reasons for the vm event request

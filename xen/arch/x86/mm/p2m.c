@@ -244,6 +244,20 @@ void p2m_flush_hardware_cached_dirty(struct domain *d)
     }
 }
 
+#ifdef CONFIG_MEM_SHARING
+void p2m_reset_dirty_memory(struct domain *d)
+{
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+
+    if ( p2m->reset_dirty_memory )
+    {
+        p2m_lock(p2m);
+        p2m->reset_dirty_memory(d);
+        p2m_unlock(p2m);
+    }
+}
+#endif
+
 /*
  * Force a synchronous P2M TLB flush if a deferred flush is pending.
  *

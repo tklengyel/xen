@@ -2316,9 +2316,12 @@ int xc_memshr_fork(xc_interface *xch,
  * it is likely more performant to create a new fork with xc_memshr_fork.
  *
  * With VMs that have a lot of memory this call may block for a long time.
+ *
+ * Reset dirty memory only resets pages currently logged by hardware (ie. PML).
  */
 int xc_memshr_fork_reset(xc_interface *xch, uint32_t forked_domain,
-                         bool reset_state, bool reset_memory);
+                         bool reset_state, bool reset_memory,
+                         bool reset_dirty_memory);
 
 /* Debug calls: return the number of pages referencing the shared frame backing
  * the input argument. Should be one or greater.

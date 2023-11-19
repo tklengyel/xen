@@ -26,6 +26,7 @@
 #include <asm/hvm/vmx/vvmx.h>
 #include <asm/hvm/vmx/vmcs.h>
 #include <asm/flushtlb.h>
+#include <asm/mem_sharing.h>
 #include <asm/monitor.h>
 #include <asm/shadow.h>
 #include <asm/spec_ctrl.h>
@@ -1779,6 +1780,64 @@ void vmx_domain_flush_pml_buffers(struct domain *d)
     for_each_vcpu ( d, v )
         vmx_vcpu_flush_pml_buffer(v);
 }
+
+#ifdef CONFIG_MEM_SHARING
+void vmx_vcpu_reset_dirty_memory(struct vcpu *v)
+{
+    uint64_t *pml_buf;
+    unsigned long pml_idx;
+
+    ASSERT((v == current) || (!vcpu_runnable(v) && !v->is_running));
+    ASSERT(vmx_vcpu_pml_enabled(v));
+
+    vmx_vmcs_enter(v);
+
+    __vmread(GUEST_PML_INDEX, &pml_idx);
+
+    /* Do nothing if PML buffer is empty. */
+    if ( pml_idx == (NR_PML_ENTRIES - 1) )
+        goto out;
+
+    pml_buf = __map_domain_page(v->arch.hvm.vmx.pml_pg);
+
+    /*
+     * PML index can be either 2^16-1 (buffer is full), or 0 ~ NR_PML_ENTRIES-1
+     * (buffer is not full), and in latter case PML index always points to next
+     * available entity.
+     */
+    if ( pml_idx >= NR_PML_ENTRIES )
+        pml_idx = 0;
+    else
+        pml_idx++;
+
+    for ( ; pml_idx < NR_PML_ENTRIES; pml_idx++ )
+    {
+        unsigned long gfn = pml_buf[pml_idx] >> PAGE_SHIFT;
+        mem_sharing_reset_dirty_page(v->domain, gfn);
+    }
+
+    unmap_domain_page(pml_buf);
+
+    /* Reset PML index */
+    __vmwrite(GUEST_PML_INDEX, NR_PML_ENTRIES - 1);
+
+ out:
+    vmx_vmcs_exit(v);
+}
+
+void vmx_domain_reset_dirty_memory(struct domain *d)
+{
+    struct vcpu *v;
+
+    ASSERT(atomic_read(&d->pause_count));
+
+    if ( !vmx_domain_pml_enabled(d) )
+        return;
+
+    for_each_vcpu ( d, v )
+        vmx_vcpu_reset_dirty_memory(v);
+}
+#endif
 
 static void vmx_vcpu_update_eptp(struct vcpu *v, u64 eptp)
 {

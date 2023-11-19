@@ -1367,7 +1367,7 @@ int __mem_sharing_unshare_page(struct domain *d,
     put_page_and_type(old_page);
 
  private_page_found:
-    if ( p2m_change_type_one(d, gfn, p2m_ram_shared, p2m_ram_rw) )
+    if ( p2m_change_type_one(d, gfn, p2m_ram_shared, p2m_ram_logdirty) )
     {
         gdprintk(XENLOG_ERR, "Could not change p2m type d %pd gfn %lx.\n",
                  d, gfn);
@@ -1607,7 +1607,7 @@ int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool unsharing)
 
     put_gfn(parent, gfn_l);
 
-    return p2m->set_entry(p2m, gfn, new_mfn, PAGE_ORDER_4K, p2m_ram_rw,
+    return p2m->set_entry(p2m, gfn, new_mfn, PAGE_ORDER_4K, p2m_ram_logdirty,
                           p2m->default_access, -1);
 }
 
@@ -1906,6 +1906,9 @@ static int fork(struct domain *cd, struct domain *d)
 
     rc = copy_settings(cd, d);
 
+    p2m_enable_hardware_log_dirty(cd);
+    p2m_change_entry_type_global(cd, p2m_ram_rw, p2m_ram_logdirty);
+
  done:
     if ( rc && rc != -ERESTART )
     {
@@ -1915,6 +1918,34 @@ static int fork(struct domain *cd, struct domain *d)
     }
 
     return rc;
+}
+
+int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn)
+{
+    struct domain *pd = d->parent;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+    p2m_type_t t;
+
+    mfn_t old_mfn = get_gfn_query_unlocked(pd, gfn, &t);
+    mfn_t new_mfn = get_gfn_query_unlocked(d, gfn, &t);
+
+    gdprintk(XENLOG_ERR,"Resetting gfn %lx\n", gfn);
+
+    if ( mfn_eq(new_mfn, INVALID_MFN) )
+        return 0;
+
+    /* If page was not present in the parent just remove it */
+    if ( mfn_eq(old_mfn, INVALID_MFN) )
+        return p2m->set_entry(p2m, _gfn(gfn), INVALID_MFN, PAGE_ORDER_4K,
+                              p2m_invalid, p2m_access_rwx, -1);
+
+    /* TODO: if multiple vCPUs are active we might end up copying the same
+     * page multiple times if it was dirtied on multiple vCPUs. Not an issue
+     * while running with only 1 vCPU. */
+    copy_domain_page(new_mfn, old_mfn);
+    BUG_ON(p2m_change_type_one(d, gfn, t, p2m_ram_logdirty));
+
+    return 0;
 }
 
 /*
@@ -1928,16 +1959,19 @@ static int fork(struct domain *cd, struct domain *d)
  * feature needs to be become "stable").
  */
 int mem_sharing_fork_reset(struct domain *d, bool reset_state,
-                           bool reset_memory)
+                           bool reset_memory, bool reset_dirty)
 {
     int rc = 0;
     struct domain *pd = d->parent;
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *page, *tmp;
 
-    ASSERT(reset_state || reset_memory);
+    ASSERT(reset_state || reset_memory || reset_dirty);
 
     domain_pause(d);
+
+    if ( reset_dirty )
+        p2m_reset_dirty_memory(d);
 
     if ( !reset_memory )
         goto state;
@@ -2293,19 +2327,21 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
     {
         bool reset_state = mso.u.fork.flags & XENMEM_FORK_RESET_STATE;
         bool reset_memory = mso.u.fork.flags & XENMEM_FORK_RESET_MEMORY;
+        bool reset_dirty = mso.u.fork.flags & XENMEM_FORK_RESET_DIRTY_MEMORY;
 
         rc = -EINVAL;
         if ( mso.u.fork.pad || (!reset_state && !reset_memory) )
             goto out;
         if ( mso.u.fork.flags &
-             ~(XENMEM_FORK_RESET_STATE | XENMEM_FORK_RESET_MEMORY) )
+             ~(XENMEM_FORK_RESET_STATE | XENMEM_FORK_RESET_MEMORY |
+               XENMEM_FORK_RESET_DIRTY_MEMORY) )
             goto out;
 
         rc = -ENOSYS;
         if ( !d->parent )
             goto out;
 
-        rc = mem_sharing_fork_reset(d, reset_state, reset_memory);
+        rc = mem_sharing_fork_reset(d, reset_state, reset_memory, reset_dirty);
         break;
     }
 

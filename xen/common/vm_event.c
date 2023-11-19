@@ -404,9 +404,10 @@ static int vm_event_resume(struct domain *d, struct vm_event_domain *ved)
             {
                 bool reset_state = rsp.flags & VM_EVENT_FLAG_RESET_FORK_STATE;
                 bool reset_mem = rsp.flags & VM_EVENT_FLAG_RESET_FORK_MEMORY;
+                bool reset_dirty = rsp.flags & VM_EVENT_FLAG_RESET_FORK_DIRTY_MEMORY;
 
-                if ( (reset_state || reset_mem) &&
-                     mem_sharing_fork_reset(d, reset_state, reset_mem) )
+                if ( (reset_state || reset_mem || reset_dirty) &&
+                     mem_sharing_fork_reset(d, reset_state, reset_mem, reset_dirty) )
                     ASSERT_UNREACHABLE();
             }
 #endif

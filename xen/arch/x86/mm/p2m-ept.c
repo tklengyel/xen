@@ -1364,6 +1364,16 @@ static void cf_check ept_flush_pml_buffers(struct p2m_domain *p2m)
     vmx_domain_flush_pml_buffers(p2m->domain);
 }
 
+#ifdef CONFIG_MEM_SHARING
+static void cf_check ept_reset_dirty_memory(struct domain *d)
+{
+    /* Domain must have been paused */
+    ASSERT(atomic_read(&d->pause_count));
+
+    vmx_domain_reset_dirty_memory(d);
+}
+#endif
+
 int ept_p2m_init(struct p2m_domain *p2m)
 {
     struct ept_data *ept = &p2m->ept;
@@ -1390,6 +1400,9 @@ int ept_p2m_init(struct p2m_domain *p2m)
         p2m->enable_hardware_log_dirty = ept_enable_hardware_log_dirty;
         p2m->disable_hardware_log_dirty = ept_disable_hardware_log_dirty;
         p2m->flush_hardware_cached_dirty = ept_flush_pml_buffers;
+#ifdef CONFIG_MEM_SHARING
+        p2m->reset_dirty_memory = ept_reset_dirty_memory;
+#endif
     }
 
     if ( !zalloc_cpumask_var(&ept->invalidate) )
