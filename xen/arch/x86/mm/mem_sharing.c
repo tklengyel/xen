@@ -1916,6 +1916,33 @@ static int fork(struct domain *cd, struct domain *d)
     return rc;
 }
 
+int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn)
+{
+    struct domain *pd = d->parent;
+    struct p2m_domain *p2m = p2m_get_hostp2m(d);
+    p2m_type_t t;
+
+    mfn_t old_mfn = get_gfn_query_unlocked(pd, gfn, &t);
+    mfn_t new_mfn = get_gfn_query_unlocked(d, gfn, &t);
+
+    ASSERT(t == p2m_ram_rw);
+
+    if ( mfn_eq(new_mfn, INVALID_MFN) )
+        return 0;
+
+    /* If page was not present in the parent just remove it */
+    if ( mfn_eq(old_mfn, INVALID_MFN) )
+        return p2m->set_entry(p2m, _gfn(gfn), INVALID_MFN, PAGE_ORDER_4K,
+                              p2m_invalid, p2m_access_rwx, -1);
+
+    /* TODO: if multiple vCPUs are active we might end up copying the same
+     * page multiple times if it was dirtied on multiple vCPUs. Not an issue
+     * while running with only 1 vCPU. */
+    copy_domain_page(new_mfn, old_mfn);
+
+    return 0;
+}
+
 /*
  * The fork reset operation is intended to be used on short-lived forks only.
  * There is no hypercall continuation operation implemented for this reason.
@@ -1927,16 +1954,22 @@ static int fork(struct domain *cd, struct domain *d)
  * feature needs to be become "stable").
  */
 int mem_sharing_fork_reset(struct domain *d, bool reset_state,
-                           bool reset_memory)
+                           bool reset_memory, bool reset_dirty)
 {
     int rc = 0;
     struct domain *pd = d->parent;
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     struct page_info *page, *tmp;
 
-    ASSERT(reset_state || reset_memory);
+    ASSERT(reset_state || reset_memory || reset_dirty);
 
     domain_pause(d);
+
+    if ( reset_dirty )
+    {
+        rc = p2m_reset_dirty_memory(d);
+        ASSERT(!rc);
+    }
 
     if ( !reset_memory )
         goto state;
@@ -2292,19 +2325,21 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
     {
         bool reset_state = mso.u.fork.flags & XENMEM_FORK_RESET_STATE;
         bool reset_memory = mso.u.fork.flags & XENMEM_FORK_RESET_MEMORY;
+        bool reset_dirty = mso.u.fork.flags & XENMEM_FORK_RESET_DIRTY_MEMORY;
 
         rc = -EINVAL;
         if ( mso.u.fork.pad || (!reset_state && !reset_memory) )
             goto out;
         if ( mso.u.fork.flags &
-             ~(XENMEM_FORK_RESET_STATE | XENMEM_FORK_RESET_MEMORY) )
+             ~(XENMEM_FORK_RESET_STATE | XENMEM_FORK_RESET_MEMORY |
+               XENMEM_FORK_RESET_DIRTY_MEMORY) )
             goto out;
 
         rc = -ENOSYS;
         if ( !d->parent )
             goto out;
 
-        rc = mem_sharing_fork_reset(d, reset_state, reset_memory);
+        rc = mem_sharing_fork_reset(d, reset_state, reset_memory, reset_dirty);
         break;
     }
 

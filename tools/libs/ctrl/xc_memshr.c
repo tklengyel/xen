@@ -258,7 +258,7 @@ int xc_memshr_fork(xc_interface *xch, uint32_t pdomid, uint32_t domid,
 }
 
 int xc_memshr_fork_reset(xc_interface *xch, uint32_t domid, bool reset_state,
-                         bool reset_memory)
+                         bool reset_memory, bool reset_dirty_memory)
 {
     xen_mem_sharing_op_t mso;
 
@@ -268,6 +268,8 @@ int xc_memshr_fork_reset(xc_interface *xch, uint32_t domid, bool reset_state,
         mso.u.fork.flags |= XENMEM_FORK_RESET_STATE;
     if ( reset_memory )
         mso.u.fork.flags |= XENMEM_FORK_RESET_MEMORY;
+    if ( reset_dirty_memory )
+        mso.u.fork.flags |= XENMEM_FORK_RESET_DIRTY_MEMORY;
 
     return xc_memshr_memop(xch, domid, &mso);
 }

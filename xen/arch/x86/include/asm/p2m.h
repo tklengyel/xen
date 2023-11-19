@@ -251,6 +251,9 @@ struct p2m_domain {
     void               (*enable_hardware_log_dirty)(struct p2m_domain *p2m);
     void               (*disable_hardware_log_dirty)(struct p2m_domain *p2m);
     void               (*flush_hardware_cached_dirty)(struct p2m_domain *p2m);
+#ifdef CONFIG_MEM_SHARING
+    void               (*reset_dirty_memory)(struct domain *d);
+#endif
     void               (*change_entry_type_global)(struct p2m_domain *p2m,
                                                    p2m_type_t ot,
                                                    p2m_type_t nt);
@@ -615,6 +618,11 @@ void p2m_disable_hardware_log_dirty(struct domain *d);
 
 /* Flush hardware cached dirty GFNs */
 void p2m_flush_hardware_cached_dirty(struct domain *d);
+
+#ifdef CONFIG_MEM_SHARING
+/* Reset a fork's dirty memory */
+void p2m_reset_dirty_memory(struct domain *d);
+#endif
 
 #else
 

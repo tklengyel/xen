@@ -532,6 +532,7 @@ struct xen_mem_sharing_op {
 #define XENMEM_FORK_BLOCK_INTERRUPTS   (1u << 1)
 #define XENMEM_FORK_RESET_STATE        (1u << 2)
 #define XENMEM_FORK_RESET_MEMORY       (1u << 3)
+#define XENMEM_FORK_RESET_DIRTY_MEMORY (1u << 4)
             uint16_t flags;               /* IN: optional settings */
             uint32_t pad;                 /* Must be set to 0 */
         } fork;
