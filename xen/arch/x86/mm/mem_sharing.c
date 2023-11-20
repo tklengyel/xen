@@ -1779,6 +1779,7 @@ static void copy_tsc(struct domain *cd, struct domain *d)
 
 static int copy_special_pages(struct domain *cd, struct domain *d)
 {
+#if 0
     mfn_t new_mfn, old_mfn;
     gfn_t new_gfn, old_gfn;
     struct p2m_domain *p2m = p2m_get_hostp2m(cd);
@@ -1851,7 +1852,7 @@ static int copy_special_pages(struct domain *cd, struct domain *d)
             set_gpfn_from_mfn(mfn_x(new_mfn), gfn_x(old_gfn));
         }
     }
-
+#endif
     return 0;
 }
 

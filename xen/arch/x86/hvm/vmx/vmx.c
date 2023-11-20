@@ -561,6 +561,7 @@ static const struct lbr_info *__init get_model_specific_lbr(void)
 
 static int cf_check vmx_domain_initialise(struct domain *d)
 {
+#if 0
     static const struct arch_csw csw = {
         .from = vmx_ctxt_switch_from,
         .to   = vmx_ctxt_switch_to,
@@ -578,6 +579,7 @@ static int cf_check vmx_domain_initialise(struct domain *d)
 
     if ( (rc = vmx_alloc_vlapic_mapping(d)) != 0 )
         return rc;
+#endif
 
     return 0;
 }
