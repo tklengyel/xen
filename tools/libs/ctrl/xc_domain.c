@@ -2185,7 +2185,7 @@ int xc_vcpu_get_msrs(xc_interface *xch, uint32_t domid, uint32_t vcpu,
                      uint32_t count, xc_vcpumsr_t *msrs)
 {
     int rc;
-    DECLARE_DOMCTL;
+    struct xen_domctl domctl = {};
     domctl.cmd = XEN_DOMCTL_get_vcpu_msrs;
     domctl.domain = domid;
     domctl.u.vcpu_msrs.vcpu = vcpu;
