@@ -1627,6 +1627,8 @@ int vmx_vcpu_enable_pml(struct vcpu *v)
 
     vmx_vmcs_exit(v);
 
+    gdprintk(XENLOG_WARNING, "PML enabled\n");
+
     return 0;
 }
 
@@ -1794,6 +1796,8 @@ void vmx_vcpu_reset_dirty_memory(struct vcpu *v)
 
     __vmread(GUEST_PML_INDEX, &pml_idx);
 
+    gdprintk(XENLOG_WARNING, "PML index: %lu\n", pml_idx);
+
     /* Do nothing if PML buffer is empty. */
     if ( pml_idx == (NR_PML_ENTRIES - 1) )
         goto out;
@@ -1813,7 +1817,7 @@ void vmx_vcpu_reset_dirty_memory(struct vcpu *v)
     for ( ; pml_idx < NR_PML_ENTRIES; pml_idx++ )
     {
         unsigned long gfn = pml_buf[pml_idx] >> PAGE_SHIFT;
-        mem_sharing_reset_dirty_page(d, gfn);
+        mem_sharing_reset_dirty_page(v->domain, gfn);
     }
 
     unmap_domain_page(pml_buf);
@@ -1832,7 +1836,11 @@ void vmx_domain_reset_dirty_memory(struct domain *d)
     ASSERT(atomic_read(&d->pause_count));
 
     if ( !vmx_domain_pml_enabled(d) )
+    {
+        gdprintk(XENLOG_WARNING, "PML not enabled\n");
+
         return;
+    }
 
     for_each_vcpu ( d, v )
         vmx_vcpu_reset_dirty_memory(v);

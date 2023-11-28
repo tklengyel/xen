@@ -249,6 +249,8 @@ void p2m_reset_dirty_memory(struct domain *d)
 {
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
 
+    gdprintk(XENLOG_ERR, "p2m->reset_dirty_memory %p\n", p2m->reset_dirty_memory);
+
     if ( p2m->reset_dirty_memory )
     {
         p2m_lock(p2m);

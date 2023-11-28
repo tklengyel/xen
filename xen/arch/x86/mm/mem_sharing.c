@@ -1367,7 +1367,9 @@ int __mem_sharing_unshare_page(struct domain *d,
     put_page_and_type(old_page);
 
  private_page_found:
-    if ( p2m_change_type_one(d, gfn, p2m_ram_shared, p2m_ram_rw) )
+    gdprintk(XENLOG_ERR,"Unsharing gfn %lx as logdirty\n", gfn);
+
+    if ( p2m_change_type_one(d, gfn, p2m_ram_shared, p2m_ram_logdirty) )
     {
         gdprintk(XENLOG_ERR, "Could not change p2m type d %pd gfn %lx.\n",
                  d, gfn);
@@ -1607,7 +1609,9 @@ int mem_sharing_fork_page(struct domain *d, gfn_t gfn, bool unsharing)
 
     put_gfn(parent, gfn_l);
 
-    return p2m->set_entry(p2m, gfn, new_mfn, PAGE_ORDER_4K, p2m_ram_rw,
+    gdprintk(XENLOG_ERR,"Forking gfn %lx as logdirty\n", gfn_l);
+
+    return p2m->set_entry(p2m, gfn, new_mfn, PAGE_ORDER_4K, p2m_ram_logdirty,
                           p2m->default_access, -1);
 }
 
@@ -1906,6 +1910,9 @@ static int fork(struct domain *cd, struct domain *d)
 
     rc = copy_settings(cd, d);
 
+    p2m_enable_hardware_log_dirty(cd);
+    p2m_change_entry_type_global(cd, p2m_ram_rw, p2m_ram_logdirty);
+
  done:
     if ( rc && rc != -ERESTART )
     {
@@ -1926,7 +1933,7 @@ int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn)
     mfn_t old_mfn = get_gfn_query_unlocked(pd, gfn, &t);
     mfn_t new_mfn = get_gfn_query_unlocked(d, gfn, &t);
 
-    ASSERT(t == p2m_ram_rw);
+    gdprintk(XENLOG_ERR,"Resetting gfn %lx\n", gfn);
 
     if ( mfn_eq(new_mfn, INVALID_MFN) )
         return 0;
@@ -1940,6 +1947,7 @@ int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn)
      * page multiple times if it was dirtied on multiple vCPUs. Not an issue
      * while running with only 1 vCPU. */
     copy_domain_page(new_mfn, old_mfn);
+    BUG_ON(p2m_change_type_one(d, gfn, t, p2m_ram_logdirty));
 
     return 0;
 }
@@ -1968,8 +1976,8 @@ int mem_sharing_fork_reset(struct domain *d, bool reset_state,
 
     if ( reset_dirty )
     {
-        rc = p2m_reset_dirty_memory(d);
-        ASSERT(!rc);
+        gdprintk(XENLOG_ERR, "Requesting dirty memory reset\n");
+        p2m_reset_dirty_memory(d);
     }
 
     if ( !reset_memory )

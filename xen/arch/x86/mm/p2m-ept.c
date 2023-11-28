@@ -68,6 +68,13 @@ static int atomic_write_ept_entry(struct p2m_domain *p2m,
 static void ept_p2m_type_to_flags(const struct p2m_domain *p2m,
                                   ept_entry_t *entry)
 {
+    if ( p2m->domain->domain_id != 1 && entry->sa_p2mt != 2 && entry->sa_p2mt != 12 )
+    {
+        gdprintk(XENLOG_ERR, "Setting p2m_type %u\n", entry->sa_p2mt);
+
+        dump_execution_state();
+    }
+
     /*
      * First apply type permissions.
      *

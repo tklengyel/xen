@@ -561,7 +561,6 @@ static const struct lbr_info *__init get_model_specific_lbr(void)
 
 static int cf_check vmx_domain_initialise(struct domain *d)
 {
-#if 0
     static const struct arch_csw csw = {
         .from = vmx_ctxt_switch_from,
         .to   = vmx_ctxt_switch_to,
@@ -579,7 +578,6 @@ static int cf_check vmx_domain_initialise(struct domain *d)
 
     if ( (rc = vmx_alloc_vlapic_mapping(d)) != 0 )
         return rc;
-#endif
 
     return 0;
 }
@@ -591,6 +589,7 @@ static void cf_check vmx_domain_relinquish_resources(struct domain *d)
 
 static void cf_check domain_creation_finished(struct domain *d)
 {
+#if 0
     gfn_t gfn = gaddr_to_gfn(APIC_DEFAULT_PHYS_BASE);
     mfn_t apic_access_mfn = d->arch.hvm.vmx.apic_access_mfn;
     bool ipat;
@@ -604,6 +603,7 @@ static void cf_check domain_creation_finished(struct domain *d)
 
     if ( set_mmio_p2m_entry(d, gfn, apic_access_mfn, PAGE_ORDER_4K) )
         domain_crash(d);
+#endif
 }
 
 static void vmx_init_ipt(struct vcpu *v)
@@ -3453,6 +3453,7 @@ static int vmx_alloc_vlapic_mapping(struct domain *d)
 
     return 0;
 }
+
 
 static void vmx_free_vlapic_mapping(struct domain *d)
 {

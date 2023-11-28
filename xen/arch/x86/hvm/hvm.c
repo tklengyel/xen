@@ -1978,7 +1978,7 @@ int hvm_hap_nested_page_fault(paddr_t gpa, unsigned long gla,
          * a large page, we do not change other pages type within that large
          * page.
          */
-        if ( npfec.write_access )
+        if ( !mem_sharing_is_fork(currd) && npfec.write_access )
         {
             paging_mark_pfn_dirty(currd, _pfn(gfn));
             /*
