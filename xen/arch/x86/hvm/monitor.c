@@ -339,6 +339,7 @@ int hvm_monitor_vmexit(struct vmexit_info *info)
     req.reason = VM_EVENT_REASON_VMEXIT;
     req.u.vmexit.arch.vmx.reason = info->exit_reason;
     req.u.vmexit.arch.vmx.qualification = info->exit_qualification;
+    req.u.vmexit.arch.vmx.pml = info->guest_pml_index;
     req.u.vmexit.arch.vmx.gla = info->guest_linear_address;
     req.u.vmexit.arch.vmx.interruption_info = info->interruption_info;
     req.u.vmexit.arch.vmx.interruption_error = info->interruption_error;
