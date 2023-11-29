@@ -294,3 +294,32 @@ long xc_sharing_used_frames(xc_interface *xch)
 {
     return xc_memory_op(xch, XENMEM_get_sharing_shared_pages, NULL, 0);
 }
+
+int xc_memshr_set_dirty_ignores(
+    xc_interface *xch,
+    uint32_t domid,
+    uint32_t num_gfns,
+    xen_pfn_t *gfns)
+{
+    int rc;
+    xen_mem_sharing_op_t mso;
+
+    DECLARE_HYPERCALL_BOUNCE(gfns, num_gfns * sizeof(xen_pfn_t),
+                             XC_HYPERCALL_BUFFER_BOUNCE_IN);
+
+    memset(&mso, 0, sizeof(mso));
+    mso.op = XENMEM_sharing_op_dirty_ignores;
+    mso.u.dirty_ignores.num_gfns = num_gfns;
+
+    if ( xc_hypercall_bounce_pre(xch, gfns) )
+    {
+        PERROR("Could not bounce buffer for xc_get_device_group");
+        return -1;
+    }
+
+    set_xen_guest_handle(mso.u.dirty_ignores.gfns, gfns);
+    rc = xc_memshr_memop(xch, domid, &mso);
+    xc_hypercall_bounce_post(xch, gfns);
+
+    return rc;
+}

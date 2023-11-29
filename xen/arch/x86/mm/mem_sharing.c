@@ -1925,14 +1925,24 @@ int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn)
     struct domain *pd = d->parent;
     struct p2m_domain *p2m = p2m_get_hostp2m(d);
     p2m_type_t t;
-
+    unsigned int i;
     mfn_t old_mfn = get_gfn_query_unlocked(pd, gfn, &t);
     mfn_t new_mfn = get_gfn_query_unlocked(d, gfn, &t);
 
-    gdprintk(XENLOG_ERR,"Resetting gfn %lx\n", gfn);
-
     if ( mfn_eq(new_mfn, INVALID_MFN) )
         return 0;
+
+    for (i=0; i<d->arch.hvm.mem_sharing.dirty_ignore_count; i++)
+    {
+        if ( gfn == d->arch.hvm.mem_sharing.dirty_ignores[i] )
+        {
+            BUG_ON(p2m_change_type_one(d, gfn, t, p2m_ram_logdirty));
+            gdprintk(XENLOG_ERR, "Resetting gfn %lx skipped, it's on the ignore list\n", gfn);
+            return 0;
+        }
+    }
+
+    gdprintk(XENLOG_ERR, "Resetting gfn %lx\n", gfn);
 
     /* If page was not present in the parent just remove it */
     if ( mfn_eq(old_mfn, INVALID_MFN) )
@@ -2342,6 +2352,31 @@ int mem_sharing_memop(XEN_GUEST_HANDLE_PARAM(xen_mem_sharing_op_t) arg)
             goto out;
 
         rc = mem_sharing_fork_reset(d, reset_state, reset_memory, reset_dirty);
+        break;
+    }
+
+    case XENMEM_sharing_op_dirty_ignores:
+    {
+        uint32_t num_gfns = mso.u.dirty_ignores.num_gfns;
+        unsigned int i;
+
+        gdprintk(XENLOG_ERR, "XENMEM_sharing_op_dirty_ignores %u gfns\n", num_gfns);
+
+        if ( !num_gfns || num_gfns > 10 )
+        {
+            rc = -EINVAL;
+            goto out;
+        }
+
+        d->arch.hvm.mem_sharing.dirty_ignore_count = num_gfns;
+
+        for (i=0;i<num_gfns && !rc; i++)
+        {
+            rc = copy_from_guest_offset(&d->arch.hvm.mem_sharing.dirty_ignores[i],
+                                        mso.u.dirty_ignores.gfns, i, 1);
+            gdprintk(XENLOG_ERR,"Received dirty ignore gfn %i: %lx, rc %i\n", i, d->arch.hvm.mem_sharing.dirty_ignores[i], rc);
+        }
+
         break;
     }
 

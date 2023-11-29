@@ -2323,6 +2323,10 @@ int xc_memshr_fork_reset(xc_interface *xch, uint32_t forked_domain,
                          bool reset_state, bool reset_memory,
                          bool reset_dirty_memory);
 
+int xc_memshr_set_dirty_ignores(xc_interface *xch, uint32_t forked_domain,
+                                uint32_t num_gfns, xen_pfn_t *gfns);
+
+
 /* Debug calls: return the number of pages referencing the shared frame backing
  * the input argument. Should be one or greater.
  *

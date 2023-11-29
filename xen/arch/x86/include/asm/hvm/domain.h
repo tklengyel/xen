@@ -27,6 +27,8 @@ struct mem_sharing_domain
      * to resume the search.
      */
     unsigned long next_shared_gfn_to_relinquish;
+    unsigned int dirty_ignore_count;
+    xen_pfn_t dirty_ignores[10];
 };
 #endif
 

@@ -474,6 +474,7 @@ DEFINE_XEN_GUEST_HANDLE(xen_mem_access_op_t);
 #define XENMEM_sharing_op_range_share       8
 #define XENMEM_sharing_op_fork              9
 #define XENMEM_sharing_op_fork_reset        10
+#define XENMEM_sharing_op_dirty_ignores     11
 
 #define XENMEM_SHARING_OP_S_HANDLE_INVALID  (-10)
 #define XENMEM_SHARING_OP_C_HANDLE_INVALID  (-9)
@@ -536,6 +537,10 @@ struct xen_mem_sharing_op {
             uint16_t flags;               /* IN: optional settings */
             uint32_t pad;                 /* Must be set to 0 */
         } fork;
+        struct mem_sharing_op_dirty_ignores {
+            uint32_t num_gfns;
+            XEN_GUEST_HANDLE(xen_pfn_t) gfns;
+        } dirty_ignores;
     } u;
 };
 typedef struct xen_mem_sharing_op xen_mem_sharing_op_t;
