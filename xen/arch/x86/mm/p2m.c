@@ -803,8 +803,7 @@ int p2m_change_type_one(struct domain *d, unsigned long gfn_l,
 
     mfn = p2m->get_entry(p2m, gfn, &pt, &a, 0, NULL, NULL);
     rc = likely(pt == ot)
-         ? p2m_set_entry(p2m, gfn, mfn, PAGE_ORDER_4K, nt,
-                         p2m->default_access)
+         ? p2m_set_entry(p2m, gfn, mfn, PAGE_ORDER_4K, nt, a)
          : -EBUSY;
 
     gfn_unlock(p2m, gfn, 0);
