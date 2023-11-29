@@ -390,6 +390,7 @@ struct vm_event_vmexit {
         struct {
             uint64_t reason;
             uint64_t qualification;
+            uint64_t pml;
             uint64_t gla;
             uint32_t interruption_info;
             uint32_t interruption_error;
