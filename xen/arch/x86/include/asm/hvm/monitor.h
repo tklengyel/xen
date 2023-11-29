@@ -27,6 +27,7 @@ struct vmexit_info {
     unsigned long instruction_length;
     unsigned long instruction_info;
     unsigned long guest_linear_address;
+    unsigned long guest_pml_index;
 };
 
 /*

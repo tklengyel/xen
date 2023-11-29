@@ -3064,6 +3064,7 @@ static void get_exit_infos(struct vmexit_info *info)
     __vmread(VM_EXIT_INSTRUCTION_LEN, &info->instruction_length);
     __vmread(VMX_INSTRUCTION_INFO, &info->instruction_info);
     __vmread(GUEST_LINEAR_ADDRESS, &info->guest_linear_address);
+    __vmread(GUEST_PML_INDEX, &info->guest_pml_index);
 
     /* poison value */
     __vmwrite(VM_EXIT_INTR_INFO, 0xbeef);
