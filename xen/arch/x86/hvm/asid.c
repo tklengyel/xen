@@ -13,6 +13,10 @@
 #include <xen/percpu.h>
 #include <asm/hvm/asid.h>
 
+#ifdef CONFIG_MEM_SHARING
+#include <asm/mem_sharing.h>
+#endif
+
 /* Xen command-line option to enable ASIDs */
 static bool __read_mostly opt_asid_enabled = true;
 boolean_param("asid", opt_asid_enabled);
@@ -72,6 +76,11 @@ void hvm_asid_init(int nasids)
 
 void hvm_asid_flush_vcpu_asid(struct hvm_vcpu_asid *asid)
 {
+#ifdef CONFIG_MEM_SHARING
+    if ( mem_sharing_is_fork(current->domain) )
+        dump_execution_state();
+#endif
+
     write_atomic(&asid->generation, 0);
 }
 
