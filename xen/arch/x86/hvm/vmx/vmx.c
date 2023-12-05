@@ -4839,9 +4839,17 @@ bool vmx_vmenter_helper(const struct cpu_user_regs *regs)
     else
         p_asid = &curr->arch.hvm.n1asid;
 
+#ifdef CONFIG_MEM_SHARING
+    // We just set the VPID to be the domain ID when using forks
+    old_asid = p_asid->asid;
+    need_flush = 0;
+    new_asid = currd->domain_id;
+    p_asid->asid = new_asid;
+#else
     old_asid = p_asid->asid;
     need_flush = hvm_asid_handle_vmenter(p_asid);
     new_asid = p_asid->asid;
+#endif
 
     if ( unlikely(new_asid != old_asid) )
     {

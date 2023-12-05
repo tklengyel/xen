@@ -1240,7 +1240,6 @@ err_out:
     return ret;
 }
 
-
 /*
  * A note on the rationale for unshare error handling:
  *  1. Unshare can only fail with ENOMEM. Any other error conditions BUG_ON()'s
@@ -1767,6 +1766,7 @@ static int fork_hap_allocation(struct domain *cd, struct domain *d)
 
 static void copy_tsc(struct domain *cd, struct domain *d)
 {
+#if 0
     uint32_t tsc_mode;
     uint32_t gtsc_khz;
     uint32_t incarnation;
@@ -1775,6 +1775,7 @@ static void copy_tsc(struct domain *cd, struct domain *d)
     tsc_get_info(d, &tsc_mode, &elapsed_nsec, &gtsc_khz, &incarnation);
     /* Don't bump incarnation on set */
     tsc_set_info(cd, tsc_mode, elapsed_nsec, gtsc_khz, incarnation - 1);
+#endif
 }
 
 static int copy_special_pages(struct domain *cd, struct domain *d)
@@ -1923,27 +1924,23 @@ static int fork(struct domain *cd, struct domain *d)
 int mem_sharing_reset_dirty_page(struct domain *d, unsigned long gfn)
 {
     struct domain *pd = d->parent;
-    struct p2m_domain *p2m = p2m_get_hostp2m(d);
     p2m_type_t t;
-
     mfn_t old_mfn = get_gfn_query_unlocked(pd, gfn, &t);
     mfn_t new_mfn = get_gfn_query_unlocked(d, gfn, &t);
-
-    gdprintk(XENLOG_ERR,"Resetting gfn %lx\n", gfn);
 
     if ( mfn_eq(new_mfn, INVALID_MFN) )
         return 0;
 
-    /* If page was not present in the parent just remove it */
+    /* If page was not present in the parent ignore it */
     if ( mfn_eq(old_mfn, INVALID_MFN) )
-        return p2m->set_entry(p2m, _gfn(gfn), INVALID_MFN, PAGE_ORDER_4K,
-                              p2m_invalid, p2m_access_rwx, -1);
+        return 0;
+
+    ASSERT(t == p2m_ram_logdirty);
 
     /* TODO: if multiple vCPUs are active we might end up copying the same
      * page multiple times if it was dirtied on multiple vCPUs. Not an issue
      * while running with only 1 vCPU. */
     copy_domain_page(new_mfn, old_mfn);
-    BUG_ON(p2m_change_type_one(d, gfn, t, p2m_ram_logdirty));
 
     return 0;
 }

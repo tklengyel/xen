@@ -1968,7 +1968,8 @@ void cf_check vmx_do_resume(void)
          */
         v->arch.hvm.vmx.hostenv_migrated = 1;
 
-        hvm_asid_flush_vcpu(v);
+        if ( !mem_sharing_is_fork(v->domain) )
+            hvm_asid_flush_vcpu(v);
     }
 
     debug_state = v->domain->debugger_attached
