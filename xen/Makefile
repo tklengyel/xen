@@ -251,7 +251,11 @@ SRCARCH := $(shell echo $(ARCH) | \
 export ARCH SRCARCH
 
 export CONFIG_SHELL := $(SHELL)
-export CC CXX LD NM OBJCOPY OBJDUMP ADDR2LINE
+export CC CXX ADDR2LINE
+export NM ?= nm
+export OBJCOPY ?= objcopy
+export OBJDUMP ?= objdump
+export LD ?= ld
 export YACC = $(if $(BISON),$(BISON),bison)
 export LEX = $(if $(FLEX),$(FLEX),flex)
 
