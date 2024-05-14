@@ -171,14 +171,14 @@ static void __prepare_to_wait(struct waitqueue_vcpu *wqv)
           [sz] "i" (PAGE_SIZE)
         : "memory", "rax", "rdx", "r8", "r9", "r10", "r11" );
 
-    if ( unlikely(wqv->esp == NULL) )
-    {
+    if ( likely(wqv->esp) )
+        return;
+
         gdprintk(XENLOG_ERR, "Stack too large in %s\n", __func__);
         domain_crash(curr->domain);
 
         for ( ; ; )
             do_softirq();
-    }
 }
 
 static void __finish_wait(struct waitqueue_vcpu *wqv)
